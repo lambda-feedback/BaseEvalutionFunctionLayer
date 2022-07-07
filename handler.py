@@ -1,6 +1,7 @@
 from .evaluation import evaluation_function
 
-from .tools import docs, healthcheck, parse
+from .tools import docs, parse
+from .tools.healthcheck import healthcheck
 from .tools import validate as v
 
 
