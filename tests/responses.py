@@ -79,22 +79,6 @@ class TestResponseValidation(unittest.TestCase):
             error_thrown.get("message"),
             "'an object' is not of type 'object'")
 
-    def test_bad_result_missing_is_correct_when_grading(self):
-        body = {
-            "command": "grade", 
-            "result": {
-                "feedback": "some feedback"
-            }
-        }
-
-        validation_error = validate_response(body)
-        error_thrown = validation_error.get("error_thrown")
-
-        self.assertNotEqual(validation_error, None)
-
-        self.assertEqual(
-            error_thrown.get("message"),
-            "'is_correct' is a required property")
     
     def test_bad_result_missing_tests_passed_when_checking_health(self):
         body = {

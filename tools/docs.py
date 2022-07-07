@@ -1,7 +1,7 @@
 import os 
 import base64
 
-def docs():
+def send_docs_file():
     '''
     Fetch and return the docs.md file relevant to this function
     '''

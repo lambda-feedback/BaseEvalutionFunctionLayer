@@ -7,7 +7,7 @@ import re
 from ..tests.requests import TestRequestValidation
 from ..tests.responses import TestResponseValidation
 
-from ...grading_tests import TestGradingFunction
+from ..evaluation_tests import TestEvaluationFunction
 
 """
     Extension of the default TestResult class with timing information.
@@ -118,12 +118,12 @@ def healthcheck() -> dict:
 
     request_tests = loader.loadTestsFromTestCase(TestRequestValidation)
     response_tests = loader.loadTestsFromTestCase(TestResponseValidation)
-    grading_tests = loader.loadTestsFromTestCase(TestGradingFunction)
+    evaluation_tests = loader.loadTestsFromTestCase(TestEvaluationFunction)
 
     suite = unittest.TestSuite([
         request_tests, 
         response_tests, 
-        grading_tests])
+        evaluation_tests])
     
     runner = HealthcheckRunner(verbosity=0)
 

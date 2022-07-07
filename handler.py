@@ -1,10 +1,7 @@
-from ...grading import grading_function
+from .evaluation import evaluation_function
 
-from .parse import parse_body
-from .healthcheck import healthcheck
-from .docs import docs
-
-from . import validate as v
+from .tools import docs, healthcheck, parse
+from .tools import validate as v
 
 
 """
@@ -39,17 +36,17 @@ def handle_healthcheck_command():
     }
     
 
-def handle_grade_command(event):
+def handle_eval_command(event):
     """
-    Function to create the response when commanded to grade an answer.
+    Function to create the response when commanded to evaluate an answer.
     ---
     This function attempts to parse the request body, performs schema validation and
-    attempts to run the grading function on the given parameters.
+    attempts to run the evaluation function on the given parameters.
 
     If any of these fail, a message is returned and an error field is passed if more
     information can be provided.
     """
-    body, parse_error = parse_body(event)
+    body, parse_error = parse.parse_body(event)
 
     if parse_error:
         return {"error": parse_error}
@@ -66,15 +63,15 @@ def handle_grade_command(event):
         params = body.get("params", dict())
 
         return {
-            "command": "grade",
-            "result": grading_function(response, answer, params)
+            "command": "eval",
+            "result": evaluation_function(response, answer, params)
         }
 
     except Exception as e:
         return {
             "error": {
-                "message": "An exception was raised while executing the grading function.",
-                "description": str(e) if str(e) != "" else repr(e)
+                "description": "An exception was raised while executing the evaluation function.",
+                "detail": str(e) if str(e) != "" else repr(e)
             }
         }
 
@@ -93,19 +90,17 @@ def handler(event, context={}):
     the schema set out in the request-response-schema repo.
     """
     headers = event.get("headers", dict())
-    command = headers.get("command", "grade")
-
-    print(headers, command)
+    command = headers.get("command", "eval")
 
     if command == "healthcheck":
         response = handle_healthcheck_command()
 
-    elif command == "grade":
-        response = handle_grade_command(event)
+    elif command == "eval":
+        response = handle_eval_command(event)
 
     elif command == "docs":
         # No need to validate docs (the function does error handling)
-        return docs()
+        return docs.send_docs_file()
 
     else:
         response = handle_unknown_command(command)

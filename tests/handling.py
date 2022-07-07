@@ -17,7 +17,7 @@ class TestHandlerFunction(unittest.TestCase):
 
         self.assertEqual(
             error.get("message"), 
-            "No grading data supplied in request body.")
+            "No evaluation data supplied in request body.")
 
     def test_non_json_body(self):
         event = {
