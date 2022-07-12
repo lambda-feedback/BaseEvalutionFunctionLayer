@@ -2,6 +2,7 @@ import os
 import requests
 import jsonschema
 
+
 def load_validator_from_url(uri_env_name):
     """
     Function to create a validator by pulling the schema from a url.
@@ -14,6 +15,7 @@ def load_validator_from_url(uri_env_name):
 
     return jsonschema.Draft7Validator(schema)
 
+
 request_validator = load_validator_from_url("REQUEST_SCHEMA_URL")
 response_validator = load_validator_from_url("RESPONSE_SCHEMA_URL")
 
@@ -25,18 +27,20 @@ response_validator = load_validator_from_url("RESPONSE_SCHEMA_URL")
 #    response_schema = json.load(f)
 #    response_validator = jsonschema.Draft7Validator(response_schema)
 
+
 def validate(validator, body):
     try:
         validator.validate(body)
     except jsonschema.exceptions.ValidationError as e:
-        
+
         return {
             "message": e.message,
             "schema_path": list(e.absolute_schema_path),
             "instance_path": list(e.absolute_path)
         }
-    
+
     return None
+
 
 def validate_request(body):
     """    
@@ -51,11 +55,13 @@ def validate_request(body):
 
     if request_error:
         return {
-            "message": "Schema threw an error when validating the request body.",
+            "message":
+            "Schema threw an error when validating the request body.",
             "error_thrown": request_error
         }
 
     return None
+
 
 def validate_response(body):
     """    
@@ -70,8 +76,10 @@ def validate_response(body):
 
     if response_error:
         return {
-            "message": "Schema threw an error when validating the response body.",
-            "error_thrown": response_error
+            "message":
+            "Schema threw an error when validating the response body.",
+            "error_thrown": response_error,
+            "raw_response_body": body
         }
 
     return None

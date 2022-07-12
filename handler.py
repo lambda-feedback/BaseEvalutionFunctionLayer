@@ -3,11 +3,10 @@ from .evaluation import evaluation_function
 from .tools import docs, parse
 from .tools.healthcheck import healthcheck
 from .tools import validate as v
-
-
 """
     Command Handler Functions.
 """
+
 
 def handle_unknown_command(command):
     """ 
@@ -17,11 +16,7 @@ def handle_unknown_command(command):
     validated against a schema. Instead, a simple message is returned telling the 
     requestor that the command isn't allowed.
     """
-    return {
-        "error": {
-            "message": f"Unknown command '{command}'."
-        }
-    }
+    return {"error": {"message": f"Unknown command '{command}'."}}
 
 
 def handle_healthcheck_command():
@@ -31,11 +26,8 @@ def handle_healthcheck_command():
     This function does not handle any of the request body so it is neither parsed or
     validated against a schema.
     """
-    return {
-        "command": "healthcheck", 
-        "result": healthcheck()
-    }
-    
+    return {"command": "healthcheck", "result": healthcheck()}
+
 
 def handle_eval_command(event):
     """
@@ -71,7 +63,8 @@ def handle_eval_command(event):
     except Exception as e:
         return {
             "error": {
-                "description": "An exception was raised while executing the evaluation function.",
+                "message":
+                "An exception was raised while executing the evaluation function.",
                 "detail": str(e) if str(e) != "" else repr(e)
             }
         }
