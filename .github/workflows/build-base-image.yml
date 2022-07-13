@@ -1,6 +1,9 @@
 name: Update Base Image for AWS Lambda and push to DockerHub
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
