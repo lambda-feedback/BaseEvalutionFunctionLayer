@@ -89,7 +89,7 @@ def handler(event, context={}):
     if command == "healthcheck":
         response = handle_healthcheck_command()
 
-    elif command == "eval":
+    elif command == "eval" or command == "grade":  # Remove once all funcs update to V2
         response = handle_eval_command(event)
 
     elif command == "docs":
