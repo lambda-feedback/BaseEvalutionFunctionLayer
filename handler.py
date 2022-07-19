@@ -3,6 +3,8 @@ from .evaluation import evaluation_function
 from .tools import docs, parse
 from .tools.healthcheck import healthcheck
 from .tools import validate as v
+
+from evaluation_function_utils.errors import EvaluationException
 """
     Command Handler Functions.
 """
@@ -59,6 +61,10 @@ def handle_eval_command(event):
             "command": "eval",
             "result": evaluation_function(response, answer, params)
         }
+
+    # Catch the custom EvaluationException (from evaluation_function_utils) first
+    except EvaluationException as e:
+        return {"error": e.error_dict}
 
     except Exception as e:
         return {
