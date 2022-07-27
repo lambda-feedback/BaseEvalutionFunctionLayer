@@ -26,3 +26,7 @@ jobs:
         with:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/python-base-eval-layer
+          build-args: |
+            INVOKER_ID=${{ secrets.INVOKER_ID }}
+            INVOKER_KEY=${{ secrets.INVOKER_KEY }}
+            INVOKER_REGION=${{ secrets.INVOKER_REGION }}
