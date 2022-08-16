@@ -98,9 +98,11 @@ def handler(event, context={}):
     elif command == "eval" or command == "grade":  # Remove once all funcs update to V2
         response = handle_eval_command(event)
 
-    elif command == "docs":
-        # No need to validate docs (the function does error handling)
-        return docs.send_docs_file()
+    elif command == "docs-dev" or command == "docs":
+        return docs.send_dev_docs()
+
+    elif command == "docs-user":
+        return docs.send_user_docs()
 
     else:
         response = handle_unknown_command(command)
