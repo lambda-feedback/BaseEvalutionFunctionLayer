@@ -81,9 +81,14 @@ def handle_eval_command(event):
         return {"command": "eval", "result": result}
 
     # Determine what feedback to provide based on cases
-    feedback, warnings = feedback_from_cases(response, params, cases)
-    if feedback:
-        result["feedback"] = feedback
+    matched_case, warnings = feedback_from_cases(response, params, cases)
+    if matched_case:
+        result["feedback"] = matched_case["feedback"]
+        result["matched_case"] = matched_case["id"]
+
+        # Override is_correct provided by the original block by the case 'mark'
+        if "mark" in matched_case:
+            result["is_correct"] = bool(int(matched_case["mark"]))
 
     # Add warnings out output if any were encountered
     if len(warnings) != 0:
@@ -95,7 +100,7 @@ def handle_eval_command(event):
 def feedback_from_cases(response, params, cases):
     """ 
     Attempt to find the correct feedback from a list of cases.
-    Returns a "feedback" string, and optional list of warnings
+    Returns a matched 'case' (the full object), and optional list of warnings
     """
 
     # A list of "cases" was provided, try matching to each of them
@@ -147,11 +152,15 @@ def feedback_from_cases(response, params, cases):
             matches += [i]
 
     if len(matches) == 0:
-        return '', warnings
+        return None, warnings
+
+    # Select the matched case
+    matched_case = cases[matches[0]]
+    matched_case['id'] = matches[0]
 
     if len(matches) == 1:
         # warnings += [{"case": matches[0]}]
-        return cases[matches[0]]['feedback'], warnings
+        return matched_case, warnings
 
     else:
         s = ', '.join([str(m) for m in matches])
@@ -159,7 +168,7 @@ def feedback_from_cases(response, params, cases):
             "message":
             f"Cases {s} were matched. Only the first one's feedback was returned"
         }]
-        return cases[matches[0]]['feedback'], warnings
+        return matched_case, warnings
 
 
 """
