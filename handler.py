@@ -71,10 +71,6 @@ def handle_eval_command(event):
             }
         }
 
-    # Result already contains feedback generated inside the custom function
-    if "feedback" in result:
-        return {"command": "eval", "result": result}
-
     # If a list of "cases" wasn't provided, we don't have any other way to get feedback
     cases = params.get("cases", [])
     if len(cases) == 0:
@@ -106,6 +102,7 @@ def feedback_from_cases(response, params, cases):
     # A list of "cases" was provided, try matching to each of them
     matches = []
     warnings = []
+    eval_function_feedback = []
     for i, case in enumerate(cases):
         # Validate the case block has an answer and feedback
         if 'answer' not in case:
@@ -150,6 +147,7 @@ def feedback_from_cases(response, params, cases):
         # This case matches the response, add it's index to the list of matches
         if res.get('is_correct') == True:
             matches += [i]
+            eval_function_feedback += [res.get("feedback","")]
 
     if len(matches) == 0:
         return None, warnings
@@ -157,6 +155,11 @@ def feedback_from_cases(response, params, cases):
     # Select the matched case
     matched_case = cases[matches[0]]
     matched_case['id'] = matches[0]
+    if not matched_case["params"].get("override_eval_feedback",False):
+        separator = "\n" if len(eval_function_feedback[0]) > 0 else ""
+        matched_case["feedback"] = matched_case.get("feedback","")\
+                                   +separator\
+                                   +eval_function_feedback[0]
 
     if len(matches) == 1:
         # warnings += [{"case": matches[0]}]
