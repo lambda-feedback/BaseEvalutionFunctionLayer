@@ -156,10 +156,10 @@ def feedback_from_cases(response, params, cases):
     matched_case = cases[matches[0]]
     matched_case['id'] = matches[0]
     if not matched_case["params"].get("override_eval_feedback",False):
-        separator = "\n" if len(eval_function_feedback[0]) > 0 else ""
-        matched_case["feedback"] = matched_case.get("feedback","")\
-                                   +separator\
-                                   +eval_function_feedback[0]
+        separator = "<br />" if len(eval_function_feedback[0]) > 0 else ""
+        matched_case.update({"feedback": matched_case.get("feedback","")\
+                                        +separator\
+                                        +eval_function_feedback[0]})
 
     if len(matches) == 1:
         # warnings += [{"case": matches[0]}]
