@@ -1,6 +1,7 @@
 import os
-import requests
+
 import jsonschema
+import requests
 
 
 def load_validator_from_url(uri_env_name):
@@ -19,31 +20,22 @@ def load_validator_from_url(uri_env_name):
 request_validator = load_validator_from_url("REQUEST_SCHEMA_URL")
 response_validator = load_validator_from_url("RESPONSE_SCHEMA_URL")
 
-#with open('/Users/louismanestar/OneDrive - Imperial College London/Jobs/Lambda Feedback/repos/lambda-feedback/request-response-schemas/request.json', 'r') as f:
-#    request_schema = json.load(f)
-#    request_validator = jsonschema.Draft7Validator(request_schema)
-
-#with open('/Users/louismanestar/OneDrive - Imperial College London/Jobs/Lambda Feedback/repos/lambda-feedback/request-response-schemas/response.json', 'r') as f:
-#    response_schema = json.load(f)
-#    response_validator = jsonschema.Draft7Validator(response_schema)
-
 
 def validate(validator, body):
     try:
         validator.validate(body)
     except jsonschema.exceptions.ValidationError as e:
-
         return {
             "message": e.message,
             "schema_path": list(e.absolute_schema_path),
-            "instance_path": list(e.absolute_path)
+            "instance_path": list(e.absolute_path),
         }
 
     return None
 
 
 def validate_request(body):
-    """    
+    """
     Function to return any errors in the request body based on its schema.
     ---
     If there are no issues with the request body, then None is returned. Otherwise, a
@@ -55,16 +47,15 @@ def validate_request(body):
 
     if request_error:
         return {
-            "message":
-            "Schema threw an error when validating the request body.",
-            "error_thrown": request_error
+            "message": "Schema threw an error when validating the request body.",
+            "error_thrown": request_error,
         }
 
     return None
 
 
 def validate_response(body):
-    """    
+    """
     Function to return any errors in the response body based on its schema.
     ---
     If there are no issues with the response body, then None is returned. Otherwise, a
@@ -76,10 +67,9 @@ def validate_response(body):
 
     if response_error:
         return {
-            "message":
-            "Schema threw an error when validating the response body.",
+            "message": "Schema threw an error when validating the response body.",
             "error_thrown": response_error,
-            "raw_response_body": body
+            "raw_response_body": body,
         }
 
     return None
