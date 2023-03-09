@@ -1,29 +1,11 @@
 import unittest
 
-from ..tools.handler import handler
+from ..handler import handler
+
 
 class TestHandlerFunction(unittest.TestCase):
-
     def test_handle_bodyless_event(self):
-        event = {
-            "random": "metadata",
-            "without": "a body"
-        }
-
-        response = handler(event)
-
-        self.assertIn("error", response)
-        error = response.get("error")
-
-        self.assertEqual(
-            error.get("message"), 
-            "No evaluation data supplied in request body.")
-
-    def test_non_json_body(self):
-        event = {
-            "random": "metadata",
-            "body": "{}}}{{{[][] this is not json."
-        }
+        event = {"random": "metadata", "without": "a body"}
 
         response = handler(event)
 
@@ -32,47 +14,84 @@ class TestHandlerFunction(unittest.TestCase):
 
         self.assertEqual(
             error.get("message"),
-            "Request body is not valid JSON.")
+            "No grading data supplied in request body.",
+        )
 
-    def test_grade(self):
+    def test_non_json_body(self):
+        event = {"random": "metadata", "body": "{}}}{{{[][] this is not json."}
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+        error = response.get("error")
+
+        self.assertEqual(
+            error.get("message"), "Request body is not valid JSON."
+        )
+
+    def test_eval(self):
         event = {
             "random": "metadata",
-            "body": {
-                "response": "hello",
-                "answer": "world!",
-                "params": {}
-            },
-            "headers": {
-                "command": "grade"
-            }
+            "body": {"response": "hello", "answer": "world!", "params": {}},
+            "headers": {"command": "eval"},
         }
 
         response = handler(event)
 
-        self.assertEqual(response.get("command"), "grade")
+        self.assertEqual(response.get("command"), "eval")
         self.assertIn("result", response)
 
-    def test_grade_no_params(self):
+    def test_eval_no_params(self):
         event = {
             "random": "metadata",
-            "body": {
-                "response": "hello",
-                "answer": "world!"
-            }
+            "body": {"response": "hello", "answer": "world!"},
+            "headers": {"command": "eval"},
         }
 
         response = handler(event)
 
-        self.assertEqual(response.get("command"), "grade")
+        self.assertEqual(response.get("command"), "eval")
+        self.assertIn("result", response)
+
+    def test_handler_evals_by_default(self):
+        event = {
+            "random": "metadata",
+            "body": {"response": "hello", "answer": "world!"},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response.get("command"), "eval")
+
+    def test_preview(self):
+        event = {
+            "random": "metadata",
+            "body": {"response": "hello", "params": {}},
+            "headers": {"command": "preview"},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response.get("command"), "preview")
+        self.assertIn("result", response)
+
+    def test_preview_no_params(self):
+        event = {
+            "random": "metadata",
+            "body": {"response": "hello"},
+            "headers": {"command": "preview"},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response.get("command"), "preview")
         self.assertIn("result", response)
 
     def test_healthcheck(self):
         event = {
             "random": "metadata",
             "body": "{}",
-            "headers": {
-                "command": "healthcheck"
-            }
+            "headers": {"command": "healthcheck"},
         }
 
         response = handler(event)
@@ -88,17 +107,16 @@ class TestHandlerFunction(unittest.TestCase):
         event = {
             "random": "metadata",
             "body": "{}",
-            "headers": {
-                "command": "not a command"
-            }
+            "headers": {"command": "not a command"},
         }
 
         response = handler(event)
         error = response.get("error")
-    
+
         self.assertEqual(
-            error.get("message"),
-            "Unknown command 'not a command'.")
+            error.get("message"), "Unknown command 'not a command'."
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

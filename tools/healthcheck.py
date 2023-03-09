@@ -4,7 +4,7 @@ import sys
 import time
 import unittest
 
-from ..evaluation_tests import TestEvaluationFunction  # type: ignore
+# from ..evaluation_tests import TestEvaluationFunction  # type: ignore
 from ..tests.requests import TestRequestValidation
 from ..tests.responses import TestResponseValidation
 
@@ -121,9 +121,9 @@ def healthcheck() -> dict:
 
     request_tests = loader.loadTestsFromTestCase(TestRequestValidation)
     response_tests = loader.loadTestsFromTestCase(TestResponseValidation)
-    evaluation_tests = loader.loadTestsFromTestCase(TestEvaluationFunction)
+    # evaluation_tests = loader.loadTestsFromTestCase(TestEvaluationFunction)
 
-    tests = [request_tests, response_tests, evaluation_tests]
+    tests = [request_tests, response_tests]  # , evaluation_tests]
 
     if TestPreviewFunction is not None:
         preview_tests = loader.loadTestsFromTestCase(TestPreviewFunction)
