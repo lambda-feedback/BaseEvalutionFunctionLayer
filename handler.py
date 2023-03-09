@@ -2,14 +2,7 @@ from typing import Any, Dict
 
 from evaluation_function_utils.errors import EvaluationException
 
-try:
-    from .evaluation import evaluation_function  # type: ignore
-except ImportError:
-
-    def evaluation_function(response: Any, answer: Any, params: Dict) -> Dict:
-        return {"is_correct": True}
-
-
+from .evaluation import evaluation_function  # type: ignore
 from .tools import docs, parse
 from .tools import validate as v
 from .tools.healthcheck import healthcheck
