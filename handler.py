@@ -1,10 +1,24 @@
+from typing import Any, Dict
+
 from evaluation_function_utils.errors import EvaluationException
 
 from .evaluation import evaluation_function  # type: ignore
-from .preview import preview_function  # type: ignore
 from .tools import docs, parse
 from .tools import validate as v
 from .tools.healthcheck import healthcheck
+
+"""
+Update to evaluation function to allow preview command.
+Some functions do not currently have a preview.py,
+so we define an empty function.
+"""
+try:
+    from .preview import preview_function  # type: ignore
+except ImportError:
+
+    def preview_function(response: Any, params: Any) -> Dict:
+        return {"preview": response}
+
 
 """
     Command Handler Functions.
@@ -47,17 +61,16 @@ def handle_preview_command(event):
     if parse_error:
         return {"error": parse_error}
 
-    request_error = v.validate_request(body)
+    request_error = v.validate_preview_request(body)
 
     if request_error:
         return {"error": request_error}
 
     response = body["response"]
-    answer = body["answer"]
     params = body.get("params", dict())
 
     try:
-        return preview_function(response, answer, params)
+        result = preview_function(response, params)
     # Catch the custom EvaluationException (from evaluation_function_utils) first
     except EvaluationException as e:
         return {"error": e.error_dict}
@@ -69,6 +82,8 @@ def handle_preview_command(event):
                 "detail": str(e) if str(e) != "" else repr(e),
             }
         }
+
+    return {"command": "preview", "result": result}
 
 
 def handle_eval_command(event):
@@ -86,7 +101,7 @@ def handle_eval_command(event):
     if parse_error:
         return {"error": parse_error}
 
-    request_error = v.validate_request(body)
+    request_error = v.validate_eval_request(body)
 
     if request_error:
         return {"error": request_error}
@@ -238,13 +253,16 @@ def handler(event, context={}):
 
     if command == "healthcheck":
         response = handle_healthcheck_command()
+        response_error = v.validate_healthcheck_response(response)
 
     # Remove once all funcs update to V2
     elif command == "eval" or command == "grade":
         response = handle_eval_command(event)
+        response_error = v.validate_eval_response(response)
 
     elif command == "preview":
         response = handle_preview_command(event)
+        response_error = v.validate_preview_response(response)
 
     elif command == "docs-dev" or command == "docs":
         return docs.send_dev_docs()
@@ -254,8 +272,7 @@ def handler(event, context={}):
 
     else:
         response = handle_unknown_command(command)
-
-    response_error = v.validate_response(response)
+        response_error = v.validate_response(response)
 
     if response_error:
         return {"error": response_error}

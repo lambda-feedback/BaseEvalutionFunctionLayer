@@ -24,5 +24,13 @@ COPY handler.py ./app/
 COPY tests/*.py ./app/tests/
 COPY tools/*.py ./app/tools/
 
-ENV REQUEST_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/master/request.json
-ENV RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/master/responsev2.json
+# Keep these in for backwards compatibility
+ENV REQUEST_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/request.json
+ENV RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/responsev2.json
+
+ENV EVAL_REQUEST_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/request/eval.json
+ENV PREVIEW_REQUEST_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/request/preview.json
+
+ENV EVAL_RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/response/eval.json
+ENV HEALTH_RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/response/healthcheck.json
+ENV PREVIEW_RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command/response/preview.json
