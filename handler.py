@@ -7,6 +7,16 @@ from .tools.validate import ResBodyValidators, ValidationError
 
 
 def handle_command(event: JsonType, command: str) -> HandlerResponse:
+    """Switch case for handling different command options.
+
+    Args:
+        event (JsonType): The AWS Lambda event recieved by the handler.
+        command (str): The name of the function to invoke.
+
+    Returns:
+        HandlerResponse: The response object returned by the handler.
+    """
+    # No validation of the doc commands.
     if command in ("docs-dev", "docs"):
         return docs.dev()
 
@@ -35,15 +45,14 @@ def handle_command(event: JsonType, command: str) -> HandlerResponse:
     return response
 
 
-def handler(event: JsonType, context: JsonType = {}) -> HandlerResponse:
-    """
-    Main function invoked by AWS Lambda to handle incoming requests.
-    ---
-    This function invokes the handler function for that particular command
-    and returns
-    the result. It also performs validation on the response body to make sure
-    it follows
-    the schema set out in the request-response-schema repo.
+def handler(event: JsonType, _: JsonType = {}) -> HandlerResponse:
+    """Main function invoked by AWS Lambda to handle incoming requests.
+
+    Args:
+        event (JsonType): The AWS Lambda event received by the gateway.
+
+    Returns:
+        HandlerResponse: The response to return back to the requestor.
     """
     headers = event.get("headers", dict())
     command = headers.get("command", "eval")
@@ -60,6 +69,7 @@ def handler(event: JsonType, context: JsonType = {}) -> HandlerResponse:
     except EvaluationException as e:
         error = e.error_dict
 
+    # Catch-all for any unexpected errors.
     except Exception as e:
         error = ErrorResponse(
             message="An exception was raised while "

@@ -10,6 +10,8 @@ class DecodeErrorDetail(TypedDict):
 
 
 class ParseError(Exception):
+    """Custom exception for all parsing issues."""
+
     def __init__(
         self,
         message: str,
@@ -22,16 +24,17 @@ class ParseError(Exception):
 
 
 def body(event: JsonType) -> JsonType:
-    """
-    Function to parse the request body into a dictionary from an AWS Even
-    t object.
-    ---
-    Returns a tuple, first element of which is the body, second of which is a
-    JSON-encodable dictionary containing errors and helpful messages which ca
-    n be used
-    as a response.
+    """Get the body of a AWS Lambda event as a dictionary.
 
-    If the body could not be loaded, an empty dictionary is returned.
+    Args:
+        event (JsonType): The AWS Lambda event recieved by the handler.
+
+    Raises:
+        ParseError: Raised if the body doesn't exist, or the body couldn't be
+        decoded.
+
+    Returns:
+        JsonType: The body of the event.
     """
     body = event.get("body")
 

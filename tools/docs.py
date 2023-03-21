@@ -5,10 +5,14 @@ from .utils import DocsResponse
 
 
 def send_file(filepath: str) -> DocsResponse:
-    """
-    Fetch and return a file given by filepath
-    """
+    """Create a response object for receiving a file.
 
+    Args:
+        filepath (str): The path of the file to send.
+
+    Returns:
+        DocsResponse: The response object the handler should return.
+    """
     if not os.path.isfile(filepath):
         return DocsResponse(
             statusCode=200,
@@ -17,7 +21,6 @@ def send_file(filepath: str) -> DocsResponse:
             isBase64Encoded=False,
         )
 
-    # Read file
     with open(filepath, "rb") as file:
         docs_file = file.read()
 
@@ -32,16 +35,10 @@ def send_file(filepath: str) -> DocsResponse:
 
 
 def user() -> DocsResponse:
-    """
-    Return the user (teacher) documentation for this function
-    """
-
+    """Return the user (teacher) documentation for this function."""
     return send_file("app/docs/user.md")
 
 
 def dev() -> DocsResponse:
-    """
-    Return the developer (teacher) documentation for this function
-    """
-
+    """Return the developer (teacher) documentation for this function."""
     return send_file("app/docs/dev.md")

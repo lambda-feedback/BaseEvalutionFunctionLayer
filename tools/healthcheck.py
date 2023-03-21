@@ -23,12 +23,10 @@ try:
 except ImportError:
     TestPreviewFunction = None
 
-"""
-    Extension of the default TestResult class with timing information.
-"""
-
 
 class JsonTestResult(TypedDict):
+    """JSON-serialisable result of a single unit test."""
+
     name: str
     time: NotRequired[int]
 
@@ -37,6 +35,8 @@ JsonTestResults = List[JsonTestResult]
 
 
 class HealthcheckJsonTestResult(TypedDict):
+    """The result object returned by the healthcheck command."""
+
     tests_passed: bool
     successes: JsonTestResults
     failures: JsonTestResults
@@ -44,6 +44,8 @@ class HealthcheckJsonTestResult(TypedDict):
 
 
 class HealthcheckResult(unittest.TextTestResult):
+    """Extension of the default TestResult class with timing information."""
+
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
@@ -54,6 +56,7 @@ class HealthcheckResult(unittest.TextTestResult):
         self.__errors_json: JsonTestResults = []
 
     def removePathFromId(self, path: str) -> str:
+        """Remove the full path of the unit test, keeping only its name."""
         path_match = self.__path_re.match(path)
 
         if path_match is None:
@@ -101,33 +104,13 @@ class HealthcheckResult(unittest.TextTestResult):
         return self.__errors_json
 
 
-"""
-    Extension of the default TestRunner class that returns a JSON-encodable
-      result
-"""
-
-
 class HealthcheckRunner(unittest.TextTestRunner):
+    """Extends the TestRunner class to returns a JSON-serialisable result."""
+
     def __init__(self, *args, **kwargs) -> None:
         return super().__init__(resultclass=HealthcheckResult, *args, **kwargs)
 
     def run(self, test) -> HealthcheckJsonTestResult:
-        """
-        Extension to the original run method that returns the results in a
-          JSON-encodable format.
-        ---
-        This includes:
-            - `tests_passed` (bool): Whether all tests were successful.
-            - `successes` (list): A list of all passing tests, including
-            the name and
-                time taken to complete in microseconds.
-            - `failures` (list): A list of all tests that failed, including
-              the name and
-                traceback of failures.
-            - `errors` (list): A list of all tests that caused an error,
-            including the
-                name and traceback of failures.
-        """
         result: HealthcheckResult = super().run(test)  # type: ignore
 
         return HealthcheckJsonTestResult(
@@ -139,17 +122,13 @@ class HealthcheckRunner(unittest.TextTestRunner):
 
 
 def healthcheck() -> HealthcheckJsonTestResult:
+    """Get the result of a healthcheck by running all unit tests.
+
+    Returns:
+        HealthcheckJsonTestResult: The result object returned to the
+        healthcheck command function.
     """
-    Function used to return the results of the unittests in a JSON-encodable
-      format.
-    ---
-    Therefore, this can be used as a healthcheck to make sure the algorithm is
-    running as expected, and isn't taking too long to complete due to, e.g.,
-      issues
-    with load balancing.
-    """
-    # Redirect stderr stream to a null stream so the unittests are not logged
-    #  on the console.
+    # Redirect stderr stream to null to prevent logging unittest results
     no_stream = open(os.devnull, "w")
     sys.stderr = no_stream
 
@@ -166,6 +145,7 @@ def healthcheck() -> HealthcheckJsonTestResult:
         TestPreviewFunction,
     )
 
+    # Filter undefined test cases (i.e. evaluation and preview if deleted.)
     tests = [loader.loadTestsFromTestCase(c) for c in cases if c is not None]
 
     suite = unittest.TestSuite(tests)

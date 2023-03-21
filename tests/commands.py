@@ -1,6 +1,6 @@
 import unittest
 
-# from ..tools import commands
+from ..tools import commands  # noqa
 
 
 class TestCommandsModule(unittest.TestCase):

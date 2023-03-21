@@ -2,55 +2,60 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict
 
 from evaluation_function_utils.errors import EvaluationException
 
+from ..evaluate import evaluation_function  # type: ignore
 from . import healthcheck as health
 from . import parse, validate
 from .utils import JsonType, Response
 from .validate import ReqBodyValidators
 
 try:
-    from ..evaluate import evaluation_function  # type: ignore
-except ImportError:
-
-    def evaluation_function(response: Any, answer: Any, params: Any) -> Dict:
-        return {"is_correct": True}
-
-
-try:
     from ..preview import preview_function  # type: ignore
 except ImportError:
 
     def preview_function(response: Any, params: Any) -> Dict:
+        """Placeholder preview function if not already defined."""
         return {"preview": response}
 
 
 class CaseWarning(TypedDict, total=False):
+    """Dictionary for reporting issues when testing cases"""
+
     case: int
     message: str
     detail: str
 
 
 class CaseResult(NamedTuple):
+    """Tuple used to compile results from all cases."""
+
     is_correct: bool = False
     feedback: str = ""
     warning: Optional[CaseWarning] = None
 
 
 def healthcheck() -> Response:
+    """Run the healthcheck command for the evaluation function.
+
+    Returns:
+        Response: The body of the response returned by the handler.
+    """
     result = health.healthcheck()
     return Response(command="healthcheck", result=result)
 
 
-def preview(event: JsonType):
-    """
-    Function to create the response when commanded to preview an answer.
-    ---
-    This function attempts to parse the request body, performs schema
-    validation and
-    attempts to run the evaluation function on the given parameters.
+def preview(event: JsonType) -> Response:
+    """Run the preview command for the evaluation function.
 
-    If any of these fail, a message is returned and an error field is
-    passed if more
-    information can be provided.
+    Note:
+        The body of the event is validated against the preview schema
+        before running the preview function.
+
+    Args:
+        event (JsonType): The dictionary received by the gateway. Must
+        include a body field which may be a JSON string or a dictionary.
+
+    Returns:
+        Response: The result given the response and params in the body.
     """
     body = parse.body(event)
 
@@ -63,18 +68,22 @@ def preview(event: JsonType):
 
 
 def evaluate(event: JsonType) -> Response:
-    """
-    Function to create the response when commanded to evaluate an answer.
-    ---
-    This function attempts to parse the request body, performs schema
-      validation and
-    attempts to run the evaluation function on the given parameters.
+    """Run the evaluation command for the evaluation function.
 
-    If any of these fail, a message is returned and an error field is
-      passed if more
-    information can be provided.
-    """
+    Note:
+        The body of the event is validated against the eval schema
+        before running the evaluation function.
 
+        If cases are included in the params, this function checks for
+        matching answers and returns the specified feedback.
+
+    Args:
+        event (JsonType): The dictionary received by the gateway. Must
+        include a body field which may be a JSON string or a dictionary.
+
+    Returns:
+        Response: The result given the response and params in the body.
+    """
     body = parse.body(event)
     validate.body(body, ReqBodyValidators.EVALUATION)
 
@@ -82,7 +91,6 @@ def evaluate(event: JsonType) -> Response:
     result = evaluation_function(body["response"], body["answer"], params)
 
     if "cases" in params and len(params["cases"]) > 0:
-        # Determine what feedback to provide based on cases
         match, warnings = get_case_feedback(
             body["response"], params, params["cases"]
         )
@@ -99,14 +107,28 @@ def evaluate(event: JsonType) -> Response:
             if "mark" in match:
                 result["is_correct"] = bool(int(match["mark"]))
 
-        # Add warnings out output if any were encountered
-
     return Response(command="eval", result=result)
 
 
 def get_case_feedback(
     response: Any, params: Dict, cases: List[Dict]
 ) -> Tuple[Optional[Dict], List[CaseWarning]]:
+    """Get the feedback case that matches an answer.
+
+    Args:
+        response (Any): The student response.
+        params (Dict): The evaluation function params.
+        cases (List[Dict]): The list of potential cases to check against.
+        Must contain a feedback and answer field. May optionally contain
+        a mark field to override the is_correct response from the
+        evaluation function.
+
+    Returns:
+        Tuple[Optional[Dict], List[CaseWarning]]: The case that matched the
+        student's response (null if no match was found) and a list of
+        issues encountered when evaluating each case against the student's
+        response.
+    """
     matches, feedback, warnings = evaluate_all_cases(response, params, cases)
 
     if not matches:
@@ -139,6 +161,19 @@ def get_case_feedback(
 def evaluate_all_cases(
     response: Any, params: Dict, cases: List[Dict]
 ) -> Tuple[List[int], List[str], List[CaseWarning]]:
+    """Loops through all cases and compiles the results.
+
+    Args:
+        response (Any): The student's response.
+        params (Dict): The params of the evaluation function.
+        cases (List[Dict]): A list of cases to check against.
+
+    Returns:
+        Tuple[List[int], List[str], List[CaseWarning]]: Returns a list of
+        indices of cases that match a student's response, a list of feedback
+        strings from each case, and a list of issues encountered when
+        evaluating cases against the student's response.
+    """
     matches, feedback, warnings = [], [], []
 
     for index, case in enumerate(cases):
@@ -157,7 +192,21 @@ def evaluate_all_cases(
 def evaluate_case(
     response: Any, params: Dict, case: Dict, index: int
 ) -> CaseResult:
-    # Validate the case block has an answer and feedback
+    """Evaluate a single case against a student's response.
+
+    Args:
+        response (Any): The student's response.
+        params (Dict): The params of the evaluation function.
+        case (Dict): The case to evaluate. Must contain a feedback and answer
+        field. May optionally contain a mark field to override the is_correct
+        result.
+        index (int): The index of the case in the list of cases (as an id).
+
+    Returns:
+        CaseResult: The result of the case, including whether evaluated as
+        correct, the feedback associated and the warning encountered
+        (if any, else None).
+    """
     if "answer" not in case or "feedback" not in case:
         warning = CaseWarning(
             case=index, message="Missing answer/feedback field"
@@ -168,7 +217,6 @@ def evaluate_case(
     # Merge current evaluation params with any specified in case
     case_params = case.get("params", {})
 
-    # Run the evaluation function based on this case's answer
     try:
         result = evaluation_function(
             response, case["answer"], {**params, **case_params}
@@ -179,6 +227,7 @@ def evaluate_case(
             feedback=result.get("feedback", ""),
         )
 
+    # Catch exceptions and save as a warning.
     except EvaluationException as e:
         warning = CaseWarning(case=index, **e.error_dict)
 
