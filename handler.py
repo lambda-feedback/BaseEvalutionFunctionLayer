@@ -73,7 +73,7 @@ def handler(event: JsonType, _: JsonType = {}) -> HandlerResponse:
     except Exception as e:
         error = ErrorResponse(
             message="An exception was raised while "
-            "executing the preview function.",
+            "executing the evaluation function.",
             detail=(str(e) if str(e) != "" else repr(e)),
         )
 
