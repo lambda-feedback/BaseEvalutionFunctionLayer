@@ -1,59 +1,54 @@
 import json
+from typing import Dict, Literal, Optional, TypedDict, Union
 
-from typing import Tuple
+from .utils import JsonType
 
-def load_body(body_text: str) -> Tuple[dict, dict]:
+
+class DecodeErrorDetail(TypedDict):
+    message: str
+    location: Dict[Literal["line", "column"], int]
+
+
+class ParseError(Exception):
+    def __init__(
+        self,
+        message: str,
+        error_thrown: Optional[Union[str, DecodeErrorDetail]] = None,
+        *args,
+    ) -> None:
+        super().__init__(*args)
+        self.message = message
+        self.error_thrown = error_thrown
+
+
+def body(event: JsonType) -> JsonType:
     """
-    Function to convert JSON-encoded string of the request body into a dictionary.
+    Function to parse the request body into a dictionary from an AWS Even
+    t object.
     ---
-    Returns a tuple, first element of which is the body, second of which is a 
-    JSON-encodable dictionary containing errors and helpful messages which can be used
+    Returns a tuple, first element of which is the body, second of which is a
+    JSON-encodable dictionary containing errors and helpful messages which ca
+    n be used
     as a response.
 
     If the body could not be loaded, an empty dictionary is returned.
     """
+    body = event.get("body")
 
-    # Attempt to load the body text
-    try:
-        return json.loads(body_text), None
-    # Catch Decode errors and return the problems back to the requester.
-    except json.JSONDecodeError as e:
-        return None, {
-            "message": "Request body is not valid JSON.",
-            "error_thrown": {
-                "message": e.msg,
-                "location": {
-                    "line": e.lineno,
-                    "column": e.colno
-                }
-            }
-        }
-    
-    # Catch type error problems incase the body is not a string (for testing purposes).
-    except TypeError:
-        return None, {
-            "message": "Request body is not text."
-        }
-
-def parse_body(event: dict) -> Tuple[dict, dict]:
-    """
-    Function to parse the request body into a dictionary from an AWS Event object.
-    ---
-    Returns a tuple, first element of which is the body, second of which is a 
-    JSON-encodable dictionary containing errors and helpful messages which can be used
-    as a response.
-
-    If the body could not be loaded, an empty dictionary is returned.
-    """
-    # Check if body exits in the event
-    if "body" not in event:
-        return None, {
-            "message": "No grading data supplied in request body."
-        }
-
-    # Don't convert if already a dict (for testing purposes)
-    if type(event["body"]) == dict:
-        return event["body"], None
+    if body is None:
+        raise ParseError("No data supplied in request body.")
+    elif type(body) is dict:
+        return body
 
     # If it does, convert the body into a dictionary.
-    return load_body(event["body"])
+    try:
+        return json.loads(body)
+    # Catch Decode errors and return the problems back to the requester.
+    except json.JSONDecodeError as e:
+        error_thrown = DecodeErrorDetail(
+            message=e.msg, location={"line": e.lineno, "column": e.colno}
+        )
+    except Exception as e:
+        error_thrown = str(e)
+
+    raise ParseError("Request body is not valid JSON.", error_thrown)

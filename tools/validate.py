@@ -1,187 +1,81 @@
+import enum
 import functools
 import os
+from typing import Dict, List, TypedDict, Union
 
 import jsonschema
 import jsonschema.exceptions
 import requests
 
 
+class SchemaErrorThrown(TypedDict):
+    message: str
+    schema_path: List[Union[str, int]]
+    instance_path: List[Union[str, int]]
+
+
+class ValidationError(Exception):
+    def __init__(
+        self, message: str, error_thrown: Union[str, SchemaErrorThrown], *args
+    ) -> None:
+        super().__init__(*args)
+
+        self.message = message
+        self.error_thrown = error_thrown
+
+
+class ReqBodyValidators(enum.Enum):
+    GENERIC = "request.json"
+    EVALUATION = "request/eval.json"
+    PREVIEW = "request/preview.json"
+
+
+class ResBodyValidators(enum.Enum):
+    GENERIC = "responsev2.json"
+    EVALUATION = "response/eval.json"
+    PREVIEW = "response/preview.json"
+    HEALTHCHECK = "response/healthcheck.json"
+
+
+BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
+
+
 @functools.lru_cache
-def load_validator_from_url(uri_env_name):
+def load_validator_from_url(validator_name: BodyValidators):
     """
     Function to create a validator by pulling the schema from a url.
     ---
-    This function makes a get request to the URL and converts the body to a JSON schema.
+    This function makes a get request to the URL and converts the body
+    to a JSON schema.
     This is then loaded into jsonschema validator and returned.
     """
-    schema_uri = os.environ.get(uri_env_name)
+    schemas_url = os.environ.get("SCHEMAS_URL")
 
-    if schema_uri is None:
-        raise ValueError("Schema is not defined in base layer.")
+    if schemas_url is None:
+        raise ValueError("Schema URL is not defined in base layer.")
 
-    schema = requests.get(schema_uri).json()
+    schema_url = os.path.join(schemas_url, validator_name.value)
+
+    schema = requests.get(schema_url).json()
     return jsonschema.Draft7Validator(schema)
 
 
-def validate(validator, body):
+def body(body: Union[Dict, TypedDict], validator_name: BodyValidators) -> None:
     try:
+        validator = load_validator_from_url(validator_name)
         validator.validate(body)
+
+        return
+
     except jsonschema.exceptions.ValidationError as e:
-        return {
-            "message": e.message,
-            "schema_path": list(e.absolute_schema_path),
-            "instance_path": list(e.absolute_path),
-        }
+        error_thrown = SchemaErrorThrown(
+            message=e.message,
+            schema_path=list(e.absolute_schema_path),
+            instance_path=list(e.absolute_path),
+        )
+    except Exception as e:
+        error_thrown = str(e)
 
-    return None
-
-
-def validate_request(body):
-    """
-    Function to return any errors in the request body based on its schema.
-    ---
-    If there are no issues with the request body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("REQUEST_SCHEMA_URL")
-    request_error = validate(validator, body)
-
-    if request_error:
-        return {
-            "message": "Schema threw an error when validating the request body.",
-            "error_thrown": request_error,
-        }
-
-    return None
-
-
-def validate_eval_request(body):
-    """
-    Function to return any errors in the request body based on its schema.
-    ---
-    If there are no issues with the request body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("EVAL_REQUEST_SCHEMA_URL")
-    request_error = validate(validator, body)
-
-    if request_error:
-        return {
-            "message": "Schema threw an error when validating the request body.",
-            "error_thrown": request_error,
-        }
-
-    return None
-
-
-def validate_preview_request(body):
-    """
-    Function to return any errors in the request body based on its schema.
-    ---
-    If there are no issues with the request body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("PREVIEW_REQUEST_SCHEMA_URL")
-    request_error = validate(validator, body)
-
-    if request_error:
-        return {
-            "message": "Schema threw an error when validating the request body.",
-            "error_thrown": request_error,
-        }
-
-    return None
-
-
-def validate_response(body):
-    """
-    Function to return any errors in the response body based on its schema.
-    ---
-    If there are no issues with the response body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("RESPONSE_SCHEMA_URL")
-    response_error = validate(validator, body)
-
-    if response_error:
-        return {
-            "message": "Schema threw an error when validating the response body.",
-            "error_thrown": response_error,
-            "raw_response_body": body,
-        }
-
-    return None
-
-
-def validate_eval_response(body):
-    """
-    Function to return any errors in the response body based on its schema.
-    ---
-    If there are no issues with the response body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("EVAL_RESPONSE_SCHEMA_URL")
-    response_error = validate(validator, body)
-
-    if response_error:
-        return {
-            "message": "Schema threw an error when validating the response body.",
-            "error_thrown": response_error,
-            "raw_response_body": body,
-        }
-
-    return None
-
-
-def validate_healthcheck_response(body):
-    """
-    Function to return any errors in the response body based on its schema.
-    ---
-    If there are no issues with the response body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("HEALTH_RESPONSE_SCHEMA_URL")
-    response_error = validate(validator, body)
-
-    if response_error:
-        return {
-            "message": "Schema threw an error when validating the response body.",
-            "error_thrown": response_error,
-            "raw_response_body": body,
-        }
-
-    return None
-
-
-def validate_preview_response(body):
-    """
-    Function to return any errors in the response body based on its schema.
-    ---
-    If there are no issues with the response body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    validator = load_validator_from_url("PREVIEW_RESPONSE_SCHEMA_URL")
-    response_error = validate(validator, body)
-
-    if response_error:
-        return {
-            "message": "Schema threw an error when validating the response body.",
-            "error_thrown": response_error,
-            "raw_response_body": body,
-        }
-
-    return None
+    raise ValidationError(
+        f"Failed to validate against {validator_name}.", error_thrown
+    )

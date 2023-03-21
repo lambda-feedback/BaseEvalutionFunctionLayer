@@ -3,10 +3,17 @@ import re
 import sys
 import time
 import unittest
+from typing import Any, List, TypedDict
 
-# from ..evaluation_tests import TestEvaluationFunction  # type: ignore
+from typing_extensions import NotRequired
+
 from ..tests.requests import TestRequestValidation
 from ..tests.responses import TestResponseValidation
+
+try:
+    from ..evaluation_tests import TestEvaluationFunction  # type: ignore
+except ImportError:
+    TestEvaluationFunction = None
 
 try:
     from ..preview_tests import TestPreviewFunction  # type: ignore
@@ -18,17 +25,32 @@ except ImportError:
 """
 
 
+class JsonTestResult(TypedDict):
+    name: str
+    time: NotRequired[int]
+
+
+JsonTestResults = List[JsonTestResult]
+
+
+class HealthcheckJsonTestResult(TypedDict):
+    tests_passed: bool
+    successes: JsonTestResults
+    failures: JsonTestResults
+    errors: JsonTestResults
+
+
 class HealthcheckResult(unittest.TextTestResult):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
 
         self.__path_re = re.compile(r"^[\.\/\w]+\.(\w+\.\w+)$")
 
-        self.__successes_json = []
-        self.__failures_json = []
-        self.__errors_json = []
+        self.__successes_json: JsonTestResults = []
+        self.__failures_json: JsonTestResults = []
+        self.__errors_json: JsonTestResults = []
 
-    def removePathFromId(self, path):
+    def removePathFromId(self, path: str) -> str:
         path_match = self.__path_re.match(path)
 
         if path_match is None:
@@ -36,98 +58,109 @@ class HealthcheckResult(unittest.TextTestResult):
 
         return path_match.group(1)
 
-    def startTest(self, test):
+    def startTest(self, test: unittest.TestCase) -> None:
         self._start_time = time.time()
         super().startTest(test)
 
-    def addSuccess(self, test):
-        elapsed_time_s = time.time() - self._start_time
-        elapsed_time_us = round(1000000 * elapsed_time_s)
+    def addSuccess(self, test: unittest.TestCase) -> None:
+        elapsed = time.time() - self._start_time
 
         self.__successes_json.append(
-            {"name": self.removePathFromId(test.id()), "time": elapsed_time_us}
+            JsonTestResult(
+                name=self.removePathFromId(test.id()),
+                time=round(1e6 * elapsed),
+            )
         )
 
         super().addSuccess(test)
 
-    def addFailure(self, test, err):
-        self.__failures_json.append({"name": self.removePathFromId(test.id())})
+    def addFailure(self, test: unittest.TestCase, err: Any) -> None:
+        self.__failures_json.append(
+            JsonTestResult(name=self.removePathFromId(test.id()))
+        )
 
         super().addFailure(test, err)
 
-    def addError(self, test, err):
-        self.__errors_json.append({"name": self.removePathFromId(test.id())})
+    def addError(self, test: unittest.TestCase, err: Any) -> None:
+        self.__errors_json.append(
+            JsonTestResult(name=self.removePathFromId(test.id()))
+        )
 
         super().addError(test, err)
 
-    def getSuccessesJSON(self):
+    def getSuccessesJSON(self) -> JsonTestResults:
         return self.__successes_json
 
-    def getFailuresJSON(self):
+    def getFailuresJSON(self) -> JsonTestResults:
         return self.__failures_json
 
-    def getErrorsJSON(self):
+    def getErrorsJSON(self) -> JsonTestResults:
         return self.__errors_json
 
 
 """
-    Extension of the default TestRunner class that returns a JSON-encodable result
+    Extension of the default TestRunner class that returns a JSON-encodable
+      result
 """
 
 
 class HealthcheckRunner(unittest.TextTestRunner):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         return super().__init__(resultclass=HealthcheckResult, *args, **kwargs)
 
-    def run(self, test):
+    def run(self, test) -> HealthcheckJsonTestResult:
         """
-        Extension to the original run method that returns the results in a JSON-encodable format.
+        Extension to the original run method that returns the results in a
+          JSON-encodable format.
         ---
         This includes:
             - `tests_passed` (bool): Whether all tests were successful.
-            - `successes` (list): A list of all passing tests, including the name and
+            - `successes` (list): A list of all passing tests, including
+            the name and
                 time taken to complete in microseconds.
-            - `failures` (list): A list of all tests that failed, including the name and
+            - `failures` (list): A list of all tests that failed, including
+              the name and
                 traceback of failures.
-            - `errors` (list): A list of all tests that caused an error, including the
+            - `errors` (list): A list of all tests that caused an error,
+            including the
                 name and traceback of failures.
         """
-        result = super().run(test)
+        result: HealthcheckResult = super().run(test)  # type: ignore
 
-        results = {
-            "tests_passed": result.wasSuccessful(),
-            "successes": result.getSuccessesJSON(),
-            "failures": result.getFailuresJSON(),
-            "errors": result.getErrorsJSON(),
-        }
-
-        return results
+        return HealthcheckJsonTestResult(
+            tests_passed=result.wasSuccessful(),
+            successes=result.getSuccessesJSON(),
+            failures=result.getFailuresJSON(),
+            errors=result.getErrorsJSON(),
+        )
 
 
-def healthcheck() -> dict:
+def healthcheck() -> HealthcheckJsonTestResult:
     """
-    Function used to return the results of the unittests in a JSON-encodable format.
+    Function used to return the results of the unittests in a JSON-encodable
+      format.
     ---
     Therefore, this can be used as a healthcheck to make sure the algorithm is
-    running as expected, and isn't taking too long to complete due to, e.g., issues
+    running as expected, and isn't taking too long to complete due to, e.g.,
+      issues
     with load balancing.
     """
-    # Redirect stderr stream to a null stream so the unittests are not logged on the console.
+    # Redirect stderr stream to a null stream so the unittests are not logged
+    #  on the console.
     no_stream = open(os.devnull, "w")
     sys.stderr = no_stream
 
     # Create a test loader and test runner instance
     loader = unittest.TestLoader()
 
-    request_tests = loader.loadTestsFromTestCase(TestRequestValidation)
-    response_tests = loader.loadTestsFromTestCase(TestResponseValidation)
-    # evaluation_tests = loader.loadTestsFromTestCase(TestEvaluationFunction)
+    cases = (
+        TestRequestValidation,
+        TestResponseValidation,
+        TestEvaluationFunction,
+        TestPreviewFunction,
+    )
 
-    tests = [request_tests, response_tests]  # , evaluation_tests]
-
-    if TestPreviewFunction is not None:
-        preview_tests = loader.loadTestsFromTestCase(TestPreviewFunction)
-        tests.append(preview_tests)
+    tests = [loader.loadTestsFromTestCase(c) for c in cases if c is not None]
 
     suite = unittest.TestSuite(tests)
     runner = HealthcheckRunner(verbosity=0)
