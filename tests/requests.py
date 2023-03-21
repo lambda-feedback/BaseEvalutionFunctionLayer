@@ -9,108 +9,95 @@ class TestRequestValidation(unittest.TestCase):
         body = {}
 
         with self.assertRaises(ValidationError) as e:
-            validate.body(body, ReqBodyValidators.GENERIC)
-            self.assertEqual(
-                str(e),
-                "Schema threw an error when validating the request body.",
-            )
+            validate.body(body, ReqBodyValidators.EVALUATION)
+
+        self.assertEqual(
+            str(e.exception.message),
+            "Failed to validate body against the evaluation schema.",
+        )
 
     def test_missing_response(self):
         body = {"answer": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "'response' is a required property",
         )
 
     def test_null_response_for_eval(self):
         body = {"response": None, "answer": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "None should not be valid under {'type': 'null'}",
         )
 
     def test_null_response_for_preview(self):
-        body = {"response": None, "answer": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
+        body = {"response": None, "params": {}}
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.PREVIEW)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "None should not be valid under {'type': 'null'}",
         )
 
     def test_missing_answer_in_eval(self):
         body = {"response": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "'answer' is a required property",
         )
 
     def test_missing_answer_in_preview(self):
         body = {"response": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
-
-        self.assertNotEqual(validation_error, None)
-
-        self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
-            "'answer' is a required property",
-        )
+        validate.body(body, ReqBodyValidators.PREVIEW)
 
     def test_including_answer_in_eval(self):
-        body = {"response": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
-
-        self.assertNotEqual(validation_error, None)
-
-        self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
-            "'answer' is a required property",
-        )
+        body = {"response": "example", "answer": "anything", "params": {}}
+        validate.body(body, ReqBodyValidators.EVALUATION)
 
     def test_including_answer_in_preview(self):
-        body = {"response": "example", "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
+        body = {"response": "example", "answer": "anything", "params": {}}
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.PREVIEW)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
-            "'answer' is a required property",
+            e.exception.error_thrown["message"],  # type: ignore
+            "Additional properties are not allowed ('answer' was unexpected)",
         )
 
     def test_null_answer(self):
         body = {"response": "example", "answer": None, "params": {}}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "None should not be valid under {'type': 'null'}",
         )
 
     def test_bad_params(self):
         body = {"response": "example", "answer": "example", "params": 2}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
 
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "2 is not of type 'object'",
         )
 
@@ -122,18 +109,17 @@ class TestRequestValidation(unittest.TestCase):
             "hello": "world",
         }
 
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
-        self.assertNotEqual(validation_error, None)
+        with self.assertRaises(ValidationError) as e:
+            validate.body(body, ReqBodyValidators.EVALUATION)
 
         self.assertEqual(
-            validation_error.get("error_thrown").get("message"),
+            e.exception.error_thrown["message"],  # type: ignore
             "Additional properties are not allowed ('hello' was unexpected)",
         )
 
     def test_valid_request_body(self):
         body = {"response": "", "answer": ""}
-        validation_error = validate.body(body, ReqBodyValidators.GENERIC)
-        self.assertEqual(validation_error, None)
+        validate.body(body, ReqBodyValidators.EVALUATION)
 
 
 if __name__ == "__main__":

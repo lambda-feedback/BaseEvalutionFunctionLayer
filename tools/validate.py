@@ -25,13 +25,13 @@ class ValidationError(Exception):
 
 
 class ReqBodyValidators(enum.Enum):
-    GENERIC = "request.json"
+    ORIGINAL = "request.json"
     EVALUATION = "request/eval.json"
     PREVIEW = "request/preview.json"
 
 
 class ResBodyValidators(enum.Enum):
-    GENERIC = "responsev2.json"
+    ORIGINAL = "responsev2.json"
     EVALUATION = "response/eval.json"
     PREVIEW = "response/preview.json"
     HEALTHCHECK = "response/healthcheck.json"
@@ -77,5 +77,7 @@ def body(body: Union[Dict, TypedDict], validator_name: BodyValidators) -> None:
         error_thrown = str(e)
 
     raise ValidationError(
-        f"Failed to validate against {validator_name}.", error_thrown
+        "Failed to validate body against the "
+        f"{validator_name.name.lower()} schema.",
+        error_thrown,
     )

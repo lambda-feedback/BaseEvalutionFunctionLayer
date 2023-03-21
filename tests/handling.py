@@ -13,8 +13,8 @@ class TestHandlerFunction(unittest.TestCase):
         error = response.get("error")
 
         self.assertEqual(
-            error.get("message"),
-            "No grading data supplied in request body.",
+            error["message"],  # type: ignore
+            "No data supplied in request body.",
         )
 
     def test_non_json_body(self):
@@ -26,7 +26,7 @@ class TestHandlerFunction(unittest.TestCase):
         error = response.get("error")
 
         self.assertEqual(
-            error.get("message"), "Request body is not valid JSON."
+            error["message"], "Request body is not valid JSON."  # type: ignore
         )
 
     def test_eval(self):
@@ -101,7 +101,7 @@ class TestHandlerFunction(unittest.TestCase):
 
         result = response.get("result")
 
-        self.assertTrue(result.get("tests_passed"))
+        self.assertTrue(result["tests_passed"])  # type: ignore
 
     def test_invalid_command(self):
         event = {
@@ -114,7 +114,8 @@ class TestHandlerFunction(unittest.TestCase):
         error = response.get("error")
 
         self.assertEqual(
-            error.get("message"), "Unknown command 'not a command'."
+            error["message"],  # type: ignore
+            "Unknown command 'not a command'.",
         )
 
 

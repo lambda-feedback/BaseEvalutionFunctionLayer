@@ -7,6 +7,9 @@ from typing import Any, List, TypedDict
 
 from typing_extensions import NotRequired
 
+from ..tests.commands import TestCommandsModule
+from ..tests.docs import TestDocsModule
+from ..tests.parse import TestParseModule
 from ..tests.requests import TestRequestValidation
 from ..tests.responses import TestResponseValidation
 
@@ -156,6 +159,9 @@ def healthcheck() -> HealthcheckJsonTestResult:
     cases = (
         TestRequestValidation,
         TestResponseValidation,
+        TestCommandsModule,
+        TestParseModule,
+        TestDocsModule,
         TestEvaluationFunction,
         TestPreviewFunction,
     )

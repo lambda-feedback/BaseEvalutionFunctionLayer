@@ -28,7 +28,7 @@ def handle_command(event: JsonType, command: str) -> HandlerResponse:
         response = Response(
             error=ErrorResponse(message=f"Unknown command '{command}'.")
         )
-        validator = ResBodyValidators.GENERIC
+        validator = ResBodyValidators.EVALUATION
 
     validate.body(response, validator)
 
