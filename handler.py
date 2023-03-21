@@ -8,10 +8,10 @@ from .tools.validate import ResBodyValidators, ValidationError
 
 def handle_command(event: JsonType, command: str) -> HandlerResponse:
     if command in ("docs-dev", "docs"):
-        return docs.send_dev_docs()
+        return docs.dev()
 
     elif command == "docs-user":
-        return docs.send_user_docs()
+        return docs.user()
 
     elif command in ("eval", "grade"):
         response = commands.evaluate(event)

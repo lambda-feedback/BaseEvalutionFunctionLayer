@@ -4,7 +4,7 @@ import os
 from .utils import DocsResponse
 
 
-def send_generic_file(filepath: str) -> DocsResponse:
+def send_file(filepath: str) -> DocsResponse:
     """
     Fetch and return a file given by filepath
     """
@@ -21,7 +21,7 @@ def send_generic_file(filepath: str) -> DocsResponse:
     with open(filepath, "rb") as file:
         docs_file = file.read()
 
-    docs_encoded = base64.encodestring(docs_file)
+    docs_encoded = base64.encodebytes(docs_file)
 
     return DocsResponse(
         statusCode=200,
@@ -31,17 +31,17 @@ def send_generic_file(filepath: str) -> DocsResponse:
     )
 
 
-def send_user_docs() -> DocsResponse:
+def user() -> DocsResponse:
     """
     Return the user (teacher) documentation for this function
     """
 
-    return send_generic_file("app/docs/user.md")
+    return send_file("app/docs/user.md")
 
 
-def send_dev_docs() -> DocsResponse:
+def dev() -> DocsResponse:
     """
     Return the developer (teacher) documentation for this function
     """
 
-    return send_generic_file("app/docs/dev.md")
+    return send_file("app/docs/dev.md")
