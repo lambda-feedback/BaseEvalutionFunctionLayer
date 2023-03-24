@@ -32,12 +32,16 @@ class ValidationError(Exception):
 
 
 class ReqBodyValidators(enum.Enum):
+    """Enum for all request body validators."""
+
     ORIGINAL = "request.json"
     EVALUATION = "request/eval.json"
     PREVIEW = "request/preview.json"
 
 
 class ResBodyValidators(enum.Enum):
+    """Enum for all response body validators."""
+
     ORIGINAL = "responsev2.json"
     EVALUATION = "response/eval.json"
     PREVIEW = "response/preview.json"

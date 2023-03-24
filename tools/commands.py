@@ -1,20 +1,47 @@
+import warnings
 from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict
 
 from evaluation_function_utils.errors import EvaluationException
 
-from ..evaluate import evaluation_function  # type: ignore
 from . import healthcheck as health
 from . import parse, validate
-from .utils import JsonType, Response
+from .utils import (
+    EvaluationFunctionType,
+    JsonType,
+    PreviewFunctionType,
+    Response,
+)
 from .validate import ReqBodyValidators
 
 try:
+    from ..evaluate import evaluation_function  # type: ignore
+
+except ImportError:
+    evaluation_function: Optional[EvaluationFunctionType] = None
+
+    warnings.warn(
+        "Evaluation function module could not be imported. "
+        "`commands.evaluate()` will raise an exception."
+    )
+
+try:
     from ..preview import preview_function  # type: ignore
+
 except ImportError:
 
     def preview_function(response: Any, params: Any) -> Dict:
-        """Placeholder preview function if not already defined."""
+        """Placeholder preview function if not already defined.
+
+        This is for backwards compatibility. Eventually, this
+        should be also set to None if an ImportError is raised.
+        """
         return {"preview": response}
+
+    warnings.warn(
+        "Preview function could not be imported. "
+        "Please update this evaluation function to use the latest version of "
+        "the template, which should include a preview function and tests."
+    )
 
 
 class CaseWarning(TypedDict, total=False):
@@ -43,7 +70,9 @@ def healthcheck() -> Response:
     return Response(command="healthcheck", result=result)
 
 
-def preview(event: JsonType) -> Response:
+def preview(
+    event: JsonType, fnc: Optional[PreviewFunctionType] = None
+) -> Response:
     """Run the preview command for the evaluation function.
 
     Note:
@@ -53,6 +82,8 @@ def preview(event: JsonType) -> Response:
     Args:
         event (JsonType): The dictionary received by the gateway. Must
         include a body field which may be a JSON string or a dictionary.
+        fnc (Optional[PreviewFunctionType]): A function to override the
+        current preview function (for testing). Defaults to None.
 
     Returns:
         Response: The result given the response and params in the body.
@@ -62,7 +93,9 @@ def preview(event: JsonType) -> Response:
     validate.body(body, ReqBodyValidators.PREVIEW)
 
     params = body.get("params", {})
-    result = preview_function(body["response"], params)
+    fnc = fnc or preview_function
+
+    result = fnc(body["response"], params)
 
     return Response(command="preview", result=result)
 
@@ -80,6 +113,8 @@ def evaluate(event: JsonType) -> Response:
     Args:
         event (JsonType): The dictionary received by the gateway. Must
         include a body field which may be a JSON string or a dictionary.
+        fnc (Optional[EvaluationFunctionType]): A function to override the
+        current evaluation function (for testing). Defaults to None.
 
     Returns:
         Response: The result given the response and params in the body.
@@ -88,6 +123,10 @@ def evaluate(event: JsonType) -> Response:
     validate.body(body, ReqBodyValidators.EVALUATION)
 
     params = body.get("params", {})
+
+    if evaluation_function is None:
+        raise EvaluationException("Evaluation function is not defined.")
+
     result = evaluation_function(body["response"], body["answer"], params)
 
     if "cases" in params and len(params["cases"]) > 0:
@@ -111,7 +150,9 @@ def evaluate(event: JsonType) -> Response:
 
 
 def get_case_feedback(
-    response: Any, params: Dict, cases: List[Dict]
+    response: Any,
+    params: Dict,
+    cases: List[Dict],
 ) -> Tuple[Optional[Dict], List[CaseWarning]]:
     """Get the feedback case that matches an answer.
 
@@ -159,7 +200,9 @@ def get_case_feedback(
 
 
 def evaluate_all_cases(
-    response: Any, params: Dict, cases: List[Dict]
+    response: Any,
+    params: Dict,
+    cases: List[Dict],
 ) -> Tuple[List[int], List[str], List[CaseWarning]]:
     """Loops through all cases and compiles the results.
 
@@ -190,7 +233,10 @@ def evaluate_all_cases(
 
 
 def evaluate_case(
-    response: Any, params: Dict, case: Dict, index: int
+    response: Any,
+    params: Dict,
+    case: Dict,
+    index: int,
 ) -> CaseResult:
     """Evaluate a single case against a student's response.
 
@@ -216,11 +262,12 @@ def evaluate_case(
 
     # Merge current evaluation params with any specified in case
     case_params = case.get("params", {})
+    combined_params = {**params, **case_params}
 
     try:
         result = evaluation_function(
-            response, case["answer"], {**params, **case_params}
-        )
+            response, case["answer"], combined_params
+        )  # type: ignore
 
         return CaseResult(
             is_correct=result["is_correct"],

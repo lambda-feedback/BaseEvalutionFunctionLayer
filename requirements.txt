@@ -2,3 +2,5 @@ jsonschema
 requests
 evaluation-function-utils
 typing_extensions
+black
+autopep8

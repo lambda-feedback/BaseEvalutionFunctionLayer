@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Literal, TypedDict, Union
+from typing import Any, Callable, Dict, Literal, TypedDict, Union
 
 from typing_extensions import NotRequired
 
-JsonType = Dict
+JsonType = Dict[str, Any]
 SupportedCommands = Literal["eval", "grade", "preview", "healthcheck"]
+
+EvaluationFunctionType = Callable[[Any, Any, JsonType], JsonType]
+PreviewFunctionType = Callable[[Any, JsonType], JsonType]
 
 
 class ErrorResponse(TypedDict):

@@ -1,9 +1,24 @@
 import unittest
+from typing import Optional
 
 from ..handler import handler
+from ..tools import commands
+from ..tools.utils import EvaluationFunctionType
+
+evaluation_function: Optional[
+    EvaluationFunctionType
+] = lambda response, answer, params: {"is_correct": True}
 
 
 class TestHandlerFunction(unittest.TestCase):
+    def setUp(self) -> None:
+        commands.evaluation_function = evaluation_function
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        commands.evaluation_function = None
+        return super().tearDown()
+
     def test_handle_bodyless_event(self):
         event = {"random": "metadata", "without": "a body"}
 
