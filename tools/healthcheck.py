@@ -126,7 +126,7 @@ def healthcheck() -> HealthcheckJsonTestResult:
     """
     # Redirect stderr stream to null to prevent logging unittest results
     no_stream = open(os.devnull, "w")
-    # sys.stderr = no_stream
+    sys.stderr = no_stream
 
     # Create a test loader and test runner instance
     loader = unittest.TestLoader()
