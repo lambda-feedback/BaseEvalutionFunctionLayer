@@ -7,11 +7,7 @@ from typing import Any, List, TypedDict
 
 from typing_extensions import NotRequired
 
-from ..tests.commands import TestCommandsModule
-from ..tests.docs import TestDocsModule
-from ..tests.parse import TestParseModule
-from ..tests.requests import TestRequestValidation
-from ..tests.responses import TestResponseValidation
+from .smoke_tests import SmokeTests
 
 try:
     from ..evaluation_tests import TestEvaluationFunction  # type: ignore
@@ -130,17 +126,13 @@ def healthcheck() -> HealthcheckJsonTestResult:
     """
     # Redirect stderr stream to null to prevent logging unittest results
     no_stream = open(os.devnull, "w")
-    sys.stderr = no_stream
+    # sys.stderr = no_stream
 
     # Create a test loader and test runner instance
     loader = unittest.TestLoader()
 
     cases = (
-        TestRequestValidation,
-        TestResponseValidation,
-        TestCommandsModule,
-        TestParseModule,
-        TestDocsModule,
+        SmokeTests,
         TestEvaluationFunction,
         TestPreviewFunction,
     )

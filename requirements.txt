@@ -4,3 +4,5 @@ evaluation-function-utils
 typing_extensions
 black
 autopep8
+pytest
+python-dotenv

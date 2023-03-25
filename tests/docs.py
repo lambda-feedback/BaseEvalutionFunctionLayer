@@ -32,7 +32,12 @@ class TestDocsModule(unittest.TestCase):
             "tests/non-existent-doc.md missing from evaluation function files",
         )
 
-    """Can't test available dev docs without the layer above."""
+    """
+    Can't test available dev docs without the layer above.
+
+    Instead, we can only test that missing docs are correctly handled.
+    However, we test for available docs in the healthcheck smoke tests.
+    """
 
     def test_handling_missing_user_docs(self):
         result = docs.user()

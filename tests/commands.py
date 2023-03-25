@@ -17,6 +17,9 @@ def evaluation_function(
 
 
 class TestCommandsModule(unittest.TestCase):
+    def __init__(self, methodName: str = "runTest") -> None:
+        super().__init__(methodName)
+
     def setUp(self) -> None:
         commands.evaluation_function = evaluation_function
         return super().setUp()
@@ -343,6 +346,35 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertEqual(result["preview"], "hello")
+
+    def test_invalid_preview_args_raises_parse_error(self):
+        event = {"headers": "any", "other": "params"}
+
+        with self.assertRaises(parse.ParseError) as e:
+            commands.preview(event)
+
+        self.assertEqual(
+            e.exception.message, "No data supplied in request body."
+        )
+
+    def test_invalid_preview_schema_raises_validation_error(self):
+        event = {"body": {"response": "hello", "answer": "hello"}}
+
+        with self.assertRaises(validate.ValidationError) as e:
+            commands.preview(event)
+
+        self.assertEqual(
+            e.exception.message,
+            "Failed to validate body against the preview schema.",
+        )
+
+    def test_healthcheck(self):
+        response = commands.healthcheck()
+
+        self.assertIn("result", response)
+        result = response["result"]  # type: ignore
+
+        self.assertIn("tests_passed", result)
 
 
 if __name__ == "__main__":

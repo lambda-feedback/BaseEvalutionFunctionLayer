@@ -25,4 +25,4 @@ COPY tests/*.py ./app/tests/
 COPY tools/*.py ./app/tools/
 
 # Request-response-schemas repo/branch to use for validation
-ENV SCHEMAS_URL = https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command
+ENV SCHEMAS_URL=https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command

@@ -3,9 +3,12 @@ import functools
 import os
 from typing import Dict, List, TypedDict, Union
 
+import dotenv
 import jsonschema
 import jsonschema.exceptions
 import requests
+
+dotenv.load_dotenv()
 
 
 class SchemaErrorThrown(TypedDict):
@@ -52,7 +55,9 @@ BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
 
 
 @functools.lru_cache
-def load_validator_from_url(validator_enum: BodyValidators):
+def load_validator_from_url(
+    validator_enum: BodyValidators,
+) -> jsonschema.Draft7Validator:
     """Loads a json schema for body validations.
 
     Args:
@@ -67,12 +72,19 @@ def load_validator_from_url(validator_enum: BodyValidators):
     schemas_url = os.environ.get("SCHEMAS_URL")
 
     if schemas_url is None:
-        raise ValueError("Schema URL is not defined in base layer.")
+        raise RuntimeError("Schema URL is not defined in base layer.")
 
     schema_url = os.path.join(schemas_url, validator_enum.value)
 
-    schema = requests.get(schema_url).json()
-    return jsonschema.Draft7Validator(schema)
+    response = requests.get(schema_url)
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Failed to get {validator_enum.name.lower()} "
+            f"schema (status code {response.status_code})."
+        )
+
+    return jsonschema.Draft7Validator(response.json())
 
 
 def body(body: Union[Dict, TypedDict], validator_enum: BodyValidators) -> None:

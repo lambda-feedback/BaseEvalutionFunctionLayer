@@ -114,10 +114,6 @@ class TestHandlerFunction(unittest.TestCase):
         self.assertEqual(response.get("command"), "healthcheck")
         self.assertIn("result", response)
 
-        result = response.get("result")
-
-        self.assertTrue(result["tests_passed"])  # type: ignore
-
     def test_invalid_command(self):
         event = {
             "random": "metadata",

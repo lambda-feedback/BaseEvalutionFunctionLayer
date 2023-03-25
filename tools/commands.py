@@ -14,7 +14,7 @@ from .utils import (
 from .validate import ReqBodyValidators
 
 try:
-    from ..evaluate import evaluation_function  # type: ignore
+    from ..evaluation import evaluation_function  # type: ignore
 
 except ImportError:
     evaluation_function: Optional[EvaluationFunctionType] = None
