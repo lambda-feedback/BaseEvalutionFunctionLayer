@@ -60,9 +60,6 @@ def handler(event: JsonType, _: JsonType = {}) -> HandlerResponse:
     try:
         return handle_command(event, command)
 
-    except ParseError as e:
-        error = ErrorResponse(message=e.message, detail=e.error_thrown)
-
     except (ParseError, ValidationError) as e:
         error = ErrorResponse(message=e.message, detail=e.error_thrown)
 
