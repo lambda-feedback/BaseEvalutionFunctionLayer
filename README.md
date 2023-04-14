@@ -1,6 +1,6 @@
 # BaseEvalutionFunctionLayer
 
-Base docker image for evaluation functions coded in python. This layer cannot function alone, it needs to be extended in a specific way by evaluation function it supports.
+Base docker image for evaluation functions coded in python. This layer cannot function alone, it needs to be extended in a specific way by the evaluation function it supports.
 
 This layer encompases all the behaviour that is universal to all evaluation functions:
 
