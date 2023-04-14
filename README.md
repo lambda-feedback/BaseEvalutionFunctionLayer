@@ -16,7 +16,7 @@ _Note: user-defined files are those provided by the evaluation function code mea
 
 ## Behaviour and Usage
 
-Commands as passed in 'command' header from each request. By default (if not header is present), the function will run the `eval` command.
+Commands as passed in 'command' header from each request. By default (if no header is present), the function will run the `eval` command.
 
 ## Requirements from the superseding layer
 
