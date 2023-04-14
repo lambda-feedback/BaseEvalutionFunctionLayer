@@ -63,7 +63,7 @@ def handler(event: JsonType, _: JsonType = {}) -> HandlerResponse:
     except ParseError as e:
         error = ErrorResponse(message=e.message, detail=e.error_thrown)
 
-    except ValidationError as e:
+    except (ParseError, ValidationError) as e:
         error = ErrorResponse(message=e.message, detail=e.error_thrown)
 
     except EvaluationException as e:
