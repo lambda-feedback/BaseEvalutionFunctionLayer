@@ -51,7 +51,7 @@ class HealthcheckResult(unittest.TextTestResult):
         self.__failures_json: JsonTestResults = []
         self.__errors_json: JsonTestResults = []
 
-    def removePathFromId(self, path: str) -> str:
+    def get_name_from_id(self, path: str) -> str:
         """Remove the full path of the unit test, keeping only its name."""
         path_match = self.__path_re.match(path)
 
@@ -69,7 +69,7 @@ class HealthcheckResult(unittest.TextTestResult):
 
         self.__successes_json.append(
             JsonTestResult(
-                name=self.removePathFromId(test.id()),
+                name=self.get_name_from_id(test.id()),
                 time=round(1e6 * elapsed),
             )
         )
@@ -78,25 +78,25 @@ class HealthcheckResult(unittest.TextTestResult):
 
     def addFailure(self, test: unittest.TestCase, err: Any) -> None:
         self.__failures_json.append(
-            JsonTestResult(name=self.removePathFromId(test.id()))
+            JsonTestResult(name=self.get_name_from_id(test.id()))
         )
 
         super().addFailure(test, err)
 
     def addError(self, test: unittest.TestCase, err: Any) -> None:
         self.__errors_json.append(
-            JsonTestResult(name=self.removePathFromId(test.id()))
+            JsonTestResult(name=self.get_name_from_id(test.id()))
         )
 
         super().addError(test, err)
 
-    def getSuccessesJSON(self) -> JsonTestResults:
+    def get_successes_json(self) -> JsonTestResults:
         return self.__successes_json
 
-    def getFailuresJSON(self) -> JsonTestResults:
+    def get_failures_json(self) -> JsonTestResults:
         return self.__failures_json
 
-    def getErrorsJSON(self) -> JsonTestResults:
+    def get_errors_json(self) -> JsonTestResults:
         return self.__errors_json
 
 
@@ -111,9 +111,9 @@ class HealthcheckRunner(unittest.TextTestRunner):
 
         return HealthcheckJsonTestResult(
             tests_passed=result.wasSuccessful(),
-            successes=result.getSuccessesJSON(),
-            failures=result.getFailuresJSON(),
-            errors=result.getErrorsJSON(),
+            successes=result.get_successes_json(),
+            failures=result.get_failures_json(),
+            errors=result.get_errors_json(),
         )
 
 
