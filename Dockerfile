@@ -24,5 +24,5 @@ COPY handler.py ./app/
 COPY tests/*.py ./app/tests/
 COPY tools/*.py ./app/tools/
 
-ENV REQUEST_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/master/request.json
-ENV RESPONSE_SCHEMA_URL https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/master/responsev2.json
+# Request-response-schemas repo/branch to use for validation
+ENV SCHEMAS_URL=https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/579-adding-preview-command

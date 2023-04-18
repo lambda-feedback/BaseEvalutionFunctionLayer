@@ -1,85 +1,120 @@
+import enum
+import functools
 import os
-import requests
+from typing import Dict, List, TypedDict, Union
+
+import dotenv
 import jsonschema
+import jsonschema.exceptions
+import requests
+
+dotenv.load_dotenv()
 
 
-def load_validator_from_url(uri_env_name):
+class SchemaErrorThrown(TypedDict):
+    """Detail object returned in the error response for schema exceptions."""
+
+    message: str
+    schema_path: List[Union[str, int]]
+    instance_path: List[Union[str, int]]
+
+
+class ValidationError(Exception):
+    """Generic exception for all validation issues."""
+
+    def __init__(
+        self, message: str, error_thrown: Union[str, SchemaErrorThrown], *args
+    ) -> None:
+        super().__init__(*args)
+
+        self.message = message
+        self.error_thrown = error_thrown
+
+
+"""Enumeration objects for picking which schema to validate against."""
+
+
+class ReqBodyValidators(enum.Enum):
+    """Enum for all request body validators."""
+
+    ORIGINAL = "request.json"
+    EVALUATION = "request/eval.json"
+    PREVIEW = "request/preview.json"
+
+
+class ResBodyValidators(enum.Enum):
+    """Enum for all response body validators."""
+
+    ORIGINAL = "responsev2.json"
+    EVALUATION = "response/eval.json"
+    PREVIEW = "response/preview.json"
+    HEALTHCHECK = "response/healthcheck.json"
+
+
+BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
+
+
+@functools.lru_cache
+def load_validator_from_url(
+    validator_enum: BodyValidators,
+) -> jsonschema.Draft7Validator:
+    """Loads a json schema for body validations.
+
+    Args:
+        validator_enum (BodyValidators): The validator enum name.
+
+    Raises:
+        ValueError: Raised if the schema repo URL cannot be found.
+
+    Returns:
+        Draft7Validator: The validator to use.
     """
-    Function to create a validator by pulling the schema from a url.
-    ---
-    This function makes a get request to the URL and converts the body to a JSON schema.
-    This is then loaded into jsonschema validator and returned.
+    schemas_url = os.environ.get("SCHEMAS_URL")
+
+    if schemas_url is None:
+        raise RuntimeError("Schema URL is not defined in base layer.")
+
+    schema_url = os.path.join(schemas_url, validator_enum.value)
+
+    response = requests.get(schema_url)
+
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Failed to get {validator_enum.name.lower()} "
+            f"schema (status code {response.status_code})."
+        )
+
+    return jsonschema.Draft7Validator(response.json())
+
+
+def body(body: Union[Dict, TypedDict], validator_enum: BodyValidators) -> None:
+    """Validate the body of a request using the request-respone-schemas.
+
+    Args:
+        body (Dict): The body object to validate.
+        validator_enum (BodyValidators): The enum name of the validator to use.
+
+    Raises:
+        ValidationError: If the validation fails, or the validator could not
+        be obtained.
     """
-    schema_uri = os.environ.get(uri_env_name)
-    schema = requests.get(schema_uri).json()
-
-    return jsonschema.Draft7Validator(schema)
-
-
-request_validator = load_validator_from_url("REQUEST_SCHEMA_URL")
-response_validator = load_validator_from_url("RESPONSE_SCHEMA_URL")
-
-#with open('/Users/louismanestar/OneDrive - Imperial College London/Jobs/Lambda Feedback/repos/lambda-feedback/request-response-schemas/request.json', 'r') as f:
-#    request_schema = json.load(f)
-#    request_validator = jsonschema.Draft7Validator(request_schema)
-
-#with open('/Users/louismanestar/OneDrive - Imperial College London/Jobs/Lambda Feedback/repos/lambda-feedback/request-response-schemas/response.json', 'r') as f:
-#    response_schema = json.load(f)
-#    response_validator = jsonschema.Draft7Validator(response_schema)
-
-
-def validate(validator, body):
     try:
+        validator = load_validator_from_url(validator_enum)
         validator.validate(body)
+
+        return
+
     except jsonschema.exceptions.ValidationError as e:
+        error_thrown = SchemaErrorThrown(
+            message=e.message,
+            schema_path=list(e.absolute_schema_path),
+            instance_path=list(e.absolute_path),
+        )
+    except Exception as e:
+        error_thrown = str(e)
 
-        return {
-            "message": e.message,
-            "schema_path": list(e.absolute_schema_path),
-            "instance_path": list(e.absolute_path)
-        }
-
-    return None
-
-
-def validate_request(body):
-    """    
-    Function to return any errors in the request body based on its schema.
-    ---
-    If there are no issues with the request body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    request_error = validate(request_validator, body)
-
-    if request_error:
-        return {
-            "message":
-            "Schema threw an error when validating the request body.",
-            "error_thrown": request_error
-        }
-
-    return None
-
-
-def validate_response(body):
-    """    
-    Function to return any errors in the response body based on its schema.
-    ---
-    If there are no issues with the response body, then None is returned. Otherwise, a
-    JSON-encodable response containing the schema and errors will be returned. Each
-    element in the list of errors is a dictionary containing the error message and the
-    path to the rule in the schema that has thrown the error.
-    """
-    response_error = validate(response_validator, body)
-
-    if response_error:
-        return {
-            "message":
-            "Schema threw an error when validating the response body.",
-            "error_thrown": response_error,
-            "raw_response_body": body
-        }
-
-    return None
+    raise ValidationError(
+        "Failed to validate body against the "
+        f"{validator_enum.name.lower()} schema.",
+        error_thrown,
+    )

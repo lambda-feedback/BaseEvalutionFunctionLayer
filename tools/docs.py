@@ -1,49 +1,44 @@
-import os
 import base64
+import os
+
+from .utils import DocsResponse
 
 
-def send_generic_file(fpath):
-    '''
-    Fetch and return a file given by fpath
-    '''
+def send_file(filepath: str) -> DocsResponse:
+    """Create a response object for receiving a file.
 
-    if not os.path.isfile(fpath):
-        return {
-            'statusCode': 200,
-            'body': f"{fpath} missing from evaluation function files",
-            'headers': {
-                'Content-Type': 'application/octet-stream',
-            },
-            'isBase64Encoded': False
-        }
+    Args:
+        filepath (str): The path of the file to send.
 
-    # Read file
-    with open(fpath, 'rb') as file:
+    Returns:
+        DocsResponse: The response object the handler should return.
+    """
+    if not os.path.isfile(filepath):
+        return DocsResponse(
+            statusCode=200,
+            body=f"{filepath} missing from evaluation function files",
+            headers={"Content-Type": "application/octet-stream"},
+            isBase64Encoded=False,
+        )
+
+    with open(filepath, "rb") as file:
         docs_file = file.read()
 
-    docs_encoded = base64.encodestring(docs_file)
+    docs_encoded = base64.encodebytes(docs_file)
 
-    return {
-        'statusCode': 200,
-        'body': docs_encoded.decode(),
-        'headers': {
-            'Content-Type': 'application/octet-stream',
-        },
-        'isBase64Encoded': True
-    }
+    return DocsResponse(
+        statusCode=200,
+        body=docs_encoded.decode(),
+        headers={"Content-Type": "application/octet-stream"},
+        isBase64Encoded=True,
+    )
 
 
-def send_user_docs():
-    """ 
-    Return the user (teacher) documentation for this function
-    """
-
-    return send_generic_file('app/docs/user.md')
+def user() -> DocsResponse:
+    """Return the user (teacher) documentation for this function."""
+    return send_file("app/docs/user.md")
 
 
-def send_dev_docs():
-    """ 
-    Return the developer (teacher) documentation for this function
-    """
-
-    return send_generic_file('app/docs/dev.md')
+def dev() -> DocsResponse:
+    """Return the developer (teacher) documentation for this function."""
+    return send_file("app/docs/dev.md")
