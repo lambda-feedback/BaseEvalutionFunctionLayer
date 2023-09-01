@@ -139,7 +139,7 @@ def evaluate(event: JsonType) -> Response:
 
         if match is not None:
             result["feedback"] = match["feedback"]
-            result["matched_case"] = match["id"]
+            result["match"] = match["id"]
 
             # Override is_correct provided by the
             # original block by the case 'mark'
