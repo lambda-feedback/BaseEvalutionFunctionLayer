@@ -79,7 +79,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
-        self.assertNotIn("matched_case", result)
+        self.assertNotIn("match", result)
         self.assertNotIn("feedback", result)
 
     def test_single_feedback_case_match(self):
@@ -102,7 +102,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
-        self.assertEqual(result["matched_case"], 0)
+        self.assertEqual(result["match"], 0)
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_case_warning_data_structure(self):
@@ -159,7 +159,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
-        self.assertEqual(result["matched_case"], 1)
+        self.assertEqual(result["match"], 1)
         self.assertEqual(result["feedback"], "should be 'yes'.")
 
     def test_multiple_feedback_cases_multiple_matches(self):
@@ -191,7 +191,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
-        self.assertEqual(result["matched_case"], 0)
+        self.assertEqual(result["match"], 0)
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_case_params_overwrite_eval_params(self):
@@ -216,7 +216,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
-        self.assertNotIn("matched_case", result)
+        self.assertNotIn("match", result)
         self.assertNotIn("feedback", result)
 
     def test_invalid_case_entry_doesnt_raise_exception(self):
@@ -312,7 +312,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
-        self.assertEqual(result["matched_case"], 0)
+        self.assertEqual(result["match"], 0)
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_overriding_eval_feedback_to_incorrect_case(self):
@@ -336,7 +336,7 @@ class TestCommandsModule(unittest.TestCase):
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
-        self.assertEqual(result["matched_case"], 0)
+        self.assertEqual(result["match"], 0)
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_valid_preview_command(self):
@@ -345,7 +345,7 @@ class TestCommandsModule(unittest.TestCase):
         response = commands.preview(event)
         result = response["result"]  # type: ignore
 
-        self.assertEqual(result["preview"]["latex"], "hello")
+        self.assertEqual(result["preview"], "hello")
 
     def test_invalid_preview_args_raises_parse_error(self):
         event = {"headers": "any", "other": "params"}
