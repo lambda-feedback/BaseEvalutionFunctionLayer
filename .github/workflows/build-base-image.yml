@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9]
+        python-version: ["3.8", "3.9"]
     permissions:
       contents: read
       packages: write
@@ -48,8 +48,8 @@ jobs:
             type=ref,event=branch
             type=ref,event=tag
             type=ref,event=pr
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=edge,branch=main
+            type=raw,value=latest,enable=${{ github.ref_name == github.event.repository.default_branch && matrix.python-version == '3.9' }}
+            type=edge,branch=main,enable=false
           images: |
             name=${{ secrets.DOCKER_USERNAME }}/python-base-eval-layer,enable=false
             name=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
