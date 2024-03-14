@@ -42,7 +42,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           flavor: |
-            suffix=${{ matrix.python-version }}
+            suffix=-${{ matrix.python-version }}
           tags: |
             type=schedule
             type=ref,event=branch
