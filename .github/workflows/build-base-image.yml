@@ -1,4 +1,4 @@
-name: Update Base Image for AWS Lambda and push to DockerHub
+name: Build and Push AWS Lambda Base Image
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 
 jobs:
   push_to_registry:
-    name: Build and Push to DockerHub Registry
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -37,7 +37,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for Docker
+      - name: Extract Docker Metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
