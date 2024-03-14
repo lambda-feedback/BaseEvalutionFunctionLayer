@@ -4,29 +4,64 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
 
 jobs:
   push_to_registry:
     name: Build and Push to DockerHub Registry
     runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9]
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+        uses: actions/checkout@v4
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          fetch-depth: 0
+
+      # - name: Log in to Docker Hub
+      #   uses: docker/login-action@v3
+      #   with:
+      #     username: ${{ secrets.DOCKER_USERNAME }}
+      #     password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Login to Github Packages
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          flavor: |
+            suffix=${{ matrix.python-version }}
+          tags: |
+            type=schedule
+            type=ref,event=branch
+            type=ref,event=tag
+            type=ref,event=pr
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=edge,branch=main
+          images: |
+            name=${{ secrets.DOCKER_USERNAME }}/python-base-eval-layer,enable=false
+            name=ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}
 
       - name: Build and Push Base Image
-        uses: docker/build-push-action@v2
+        uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/python-base-eval-layer
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
+            PYTHON_VERSION=${{ matrix.python-version }}
             INVOKER_ID=${{ secrets.INVOKER_ID }}
             INVOKER_KEY=${{ secrets.INVOKER_KEY }}
             INVOKER_REGION=${{ secrets.INVOKER_REGION }}
