@@ -16,8 +16,8 @@ ENV INVOKER_KEY=${INVOKER_KEY}
 ENV INVOKER_REGION=${INVOKER_REGION}
 
 # Install backend dependencies
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/app/base_requirements.txt
-RUN pip3 install -r ${LAMBDA_TASK_ROOT}/app/base_requirements.txt
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/base_requirements.txt
+RUN pip3 install -r ${LAMBDA_TASK_ROOT}/base_requirements.txt
 
 # Copy the scripts
 COPY __init__.py ${LAMBDA_TASK_ROOT}/app/
