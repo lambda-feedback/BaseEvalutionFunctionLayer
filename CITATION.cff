@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+title: Base Evaluation Function Layer
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Karl M.
+    family-names: Lundengard
+    email: k.lundengard@imperial.ac.uk
+    affiliation: Imperial College London
+  - given-names: Louis
+    family-names: Manestar
+    email: louis.manestar18@imperial.ac.uk
+    affiliation: Imperial College London
+repository-code: 'https://github.com/lambda-feedback/BaseEvalutionFunctionLayer'
+abstract: >-
+  The base Docker image for evaluation functions in Python
+  provides a foundational layer that needs to be extended by
+  specific evaluation functions. It implements common behaviors,
+  such as schema validation, unit testing setup, and essential
+  commands for evaluation, preview, health checks, and documentation.
+keywords:
+  - python
+  - evaluation function
+  - lambda feedback
+  - education
+  - lms
