@@ -1,6 +1,6 @@
 ARG PYTHON_VERSION
 
-# Base image is Python 3.8 provided by AWS Lambda in Docker Hub
+# Base image is Python 3.8/3.9/3.10/3.11/3.12 provided by AWS Lambda in Docker Hub
 FROM public.ecr.aws/lambda/python:${PYTHON_VERSION}
 
 WORKDIR /app
