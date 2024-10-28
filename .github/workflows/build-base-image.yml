@@ -1,4 +1,4 @@
-name: Update Base Image for AWS Lambda and push to DockerHub
+name: Build and Push AWS Lambda Base Image
 
 on:
   push:
