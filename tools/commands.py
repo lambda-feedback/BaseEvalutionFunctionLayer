@@ -129,7 +129,7 @@ def evaluate(event: JsonType) -> Response:
 
     result = evaluation_function(body["response"], body["answer"], params)
 
-    if "cases" in params and len(params["cases"]) > 0:
+    if result["is_correct"] is False and "cases" in params and len(params["cases"]) > 0:
         match, warnings = get_case_feedback(
             body["response"], params, params["cases"]
         )
