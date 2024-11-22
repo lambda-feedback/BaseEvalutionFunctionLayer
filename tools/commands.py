@@ -129,7 +129,7 @@ def evaluate(event: JsonType) -> Response:
 
     result = evaluation_function(body["response"], body["answer"], params)
 
-    if "cases" in params and len(params["cases"]) > 0:
+    if result["is_correct"] is False and "cases" in params and len(params["cases"]) > 0:
         match, warnings = get_case_feedback(
             body["response"], params, params["cases"]
         )
@@ -170,7 +170,10 @@ def get_case_feedback(
         issues encountered when evaluating each case against the student's
         response.
     """
-    matches, feedback, warnings = evaluate_all_cases(response, params, cases)
+    # NOTE: Previous behaviour, where all cases are evaluated but only the feedback
+    # for the first case is returned can be restored by changing the line below to:
+    # matches, feedback, warnings = evaluate_all_cases(response, params, cases)
+    matches, feedback, warnings = find_first_matching_case(response, params, cases)
 
     if not matches:
         return None, warnings
@@ -198,6 +201,38 @@ def get_case_feedback(
 
     return match, warnings
 
+def find_first_matching_case(
+    response: Any,
+    params: Dict,
+    cases: List[Dict],
+) -> Tuple[List[int], List[str], List[CaseWarning]]:
+    """Evaluates cases until it finds matching one.
+
+    Args:
+        response (Any): The student's response.
+        params (Dict): The params of the evaluation function.
+        cases (List[Dict]): A list of cases to check against.
+
+    Returns:
+        Tuple[List[int], List[str], List[CaseWarning]]: Returns a list of
+        indices of cases that match a student's response, a list of feedback
+        strings from each case, and a list of issues encountered when
+        evaluating cases against the student's response.
+    """
+    matches, feedback, warnings = [], [], []
+
+    for index, case in enumerate(cases):
+        result = evaluate_case(response, params, case, index)
+
+        if result.warning is not None:
+            warnings.append(result.warning)
+
+        if result.is_correct:
+            matches.append(index)
+            feedback.append(result.feedback)
+            break
+
+    return matches, feedback, warnings
 
 def evaluate_all_cases(
     response: Any,
