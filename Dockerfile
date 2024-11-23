@@ -26,6 +26,6 @@ COPY __init__.py ./app/
 COPY handler.py ./app/
 COPY tests/*.py ./app/tests/
 COPY tools/*.py ./app/tools/
+COPY schemas/ ./app/schemas/
 
-# Request-response-schemas repo/branch to use for validation
-ENV SCHEMAS_URL=https://raw.githubusercontent.com/lambda-feedback/request-response-schemas/master
+ENV SCHEMA_DIR=/app/app/schemas/

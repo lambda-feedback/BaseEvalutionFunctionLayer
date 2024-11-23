@@ -1,0 +1,143 @@
+{
+  "title": "JSON schema for the response from a grading function.",
+  "description": "This schema is used to check whether a response from a grading function fits the basic structure.",
+  "properties": {
+    "command": {
+      "type": "string",
+      "enum": [
+        "eval",
+        "healthcheck",
+        "docs"
+      ]
+    },
+    "result": {
+      "type": "object",
+      "properties": {
+        "is_correct": {
+          "type": "boolean"
+        },
+        "feedback": {
+          "type": [
+            "object",
+            "array",
+            "string"
+          ]
+        },
+        "tests_passed": {
+          "type": "boolean"
+        },
+        "successes": {
+          "type": "array"
+        },
+        "failures": {
+          "type": "array"
+        },
+        "errors": {
+          "type": "array"
+        }
+      },
+      "additionalProperties": true
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "message": {
+          "type": "string"
+        },
+        "error_thrown": {
+          "type": [
+            "object",
+            "string"
+          ]
+        }
+      },
+      "additionalProperties": true,
+      "required": [
+        "message"
+      ]
+    }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "required": [
+          "result"
+        ]
+      },
+      "then": {
+        "required": [
+          "command"
+        ]
+      },
+      "else": {
+        "required": [
+          "error"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "grade"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "required": [
+              "is_correct"
+            ]
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "command": {
+            "const": "healthcheck"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "result": {
+            "required": [
+              "tests_passed",
+              "successes",
+              "failures",
+              "errors"
+            ]
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "result"
+            ]
+          },
+          {
+            "required": [
+              "error"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

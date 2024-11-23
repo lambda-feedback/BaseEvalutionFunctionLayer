@@ -6,7 +6,7 @@ from typing import Dict, List, TypedDict, Union
 import dotenv
 import jsonschema
 import jsonschema.exceptions
-import requests
+import json
 
 dotenv.load_dotenv()
 
@@ -53,9 +53,7 @@ class ResBodyValidators(enum.Enum):
 
 BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
 
-
-@functools.lru_cache
-def load_validator_from_url(
+def load_validator(
     validator_enum: BodyValidators,
 ) -> jsonschema.Draft7Validator:
     """Loads a json schema for body validations.
@@ -69,25 +67,22 @@ def load_validator_from_url(
     Returns:
         Draft7Validator: The validator to use.
     """
-    schemas_url = os.environ.get("SCHEMAS_URL")
+    schema_dir = os.getenv("SCHEMA_DIR")
+    if schema_dir is None:
+        raise RuntimeError("No schema path suplied.")
 
-    if schemas_url is None:
-        raise RuntimeError("Schema URL is not defined in base layer.")
+    schema_path = os.path.join(schema_dir,validator_enum.value)
 
-    schema_url = os.path.join(schemas_url, validator_enum.value)
+    try:
+        with open(schema_path, "r") as f:
+            schema = json.load(f)
+    except FileNotFoundError as e:
+        raise RuntimeError(f"Could not find schema for {validator_enum}") from e
 
-    response = requests.get(schema_url)
-
-    if response.status_code != 200:
-        raise RuntimeError(
-            f"Failed to get {validator_enum.name.lower()} "
-            f"schema (status code {response.status_code})."
-        )
-
-    return jsonschema.Draft7Validator(response.json())
+    return jsonschema.Draft7Validator(schema)
 
 
-def body(body: Union[Dict, TypedDict], validator_enum: BodyValidators) -> None:
+def body(body: Dict, validator_enum: BodyValidators) -> None:
     """Validate the body of a request using the request-respone-schemas.
 
     Args:
@@ -99,7 +94,7 @@ def body(body: Union[Dict, TypedDict], validator_enum: BodyValidators) -> None:
         be obtained.
     """
     try:
-        validator = load_validator_from_url(validator_enum)
+        validator = load_validator(validator_enum)
         validator.validate(body)
 
         return
