@@ -351,7 +351,7 @@ class TestCommandsModule(unittest.TestCase):
         response = commands.preview(event)
         result = response["result"]  # type: ignore
 
-        self.assertEqual(result["preview"]["latex"], "hello")
+        self.assertEqual(result["preview"], "hello")
 
     def test_invalid_preview_args_raises_parse_error(self):
         event = {"headers": "any", "other": "params"}
