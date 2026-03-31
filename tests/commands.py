@@ -258,7 +258,7 @@ class TestCommandsModule(unittest.TestCase):
             },
         )
 
-    def test_multiple_matched_cases_are_combined_and_warned(self):
+    def test_first_matching_case_stops_evaluation(self):
         event = {
             "body": {
                 "response": "yes",
@@ -286,16 +286,9 @@ class TestCommandsModule(unittest.TestCase):
         response = commands.evaluate(event)
         result = response["result"]  # type: ignore
 
-        self.assertIn("warnings", result)
-        warning = result["warnings"].pop()  # type: ignore
-
-        self.assertDictEqual(
-            warning,
-            {
-                "message": "Cases 0, 1 were matched. "
-                "Only the first one's feedback was returned",
-            },
-        )
+        self.assertNotIn("warnings", result)
+        self.assertEqual(result["matched_case"], 0)
+        self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_overriding_eval_feedback_to_correct_case(self):
         event = {
