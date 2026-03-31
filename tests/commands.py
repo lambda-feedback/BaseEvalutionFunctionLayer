@@ -325,7 +325,7 @@ class TestCommandsModule(unittest.TestCase):
         event = {
             "body": {
                 "response": "hello",
-                "answer": "hello",
+                "answer": "hola",
                 "params": {
                     "cases": [
                         {
