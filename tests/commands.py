@@ -1,8 +1,12 @@
+import os
 import unittest
+from pathlib import Path
 from typing import Any
 
 from ..tools import commands, parse, validate
 from ..tools.utils import JsonType
+
+_SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
 
 
 def evaluation_function(
@@ -21,10 +25,12 @@ class TestCommandsModule(unittest.TestCase):
         super().__init__(methodName)
 
     def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
         commands.evaluation_function = evaluation_function
         return super().setUp()
 
     def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
         commands.evaluation_function = None
         return super().tearDown()
 
