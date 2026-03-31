@@ -4,14 +4,12 @@ from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict
 from evaluation_function_utils.errors import EvaluationException
 
 from . import healthcheck as health
-from . import parse, validate
 from .utils import (
     EvaluationFunctionType,
     JsonType,
     PreviewFunctionType,
     Response,
 )
-from .validate import ReqBodyValidators
 
 try:
     from ..evaluation import evaluation_function  # type: ignore
@@ -71,27 +69,18 @@ def healthcheck() -> Response:
 
 
 def preview(
-    event: JsonType, fnc: Optional[PreviewFunctionType] = None
+    body: JsonType, fnc: Optional[PreviewFunctionType] = None
 ) -> Response:
     """Run the preview command for the evaluation function.
 
-    Note:
-        The body of the event is validated against the preview schema
-        before running the preview function.
-
     Args:
-        event (JsonType): The dictionary received by the gateway. Must
-        include a body field which may be a JSON string or a dictionary.
+        body (JsonType): The validated request body.
         fnc (Optional[PreviewFunctionType]): A function to override the
         current preview function (for testing). Defaults to None.
 
     Returns:
         Response: The result given the response and params in the body.
     """
-    body = parse.body(event)
-
-    validate.body(body, ReqBodyValidators.PREVIEW)
-
     params = body.get("params", {})
     fnc = fnc or preview_function
 
@@ -100,28 +89,19 @@ def preview(
     return Response(command="preview", result=result)
 
 
-def evaluate(event: JsonType) -> Response:
+def evaluate(body: JsonType) -> Response:
     """Run the evaluation command for the evaluation function.
 
     Note:
-        The body of the event is validated against the eval schema
-        before running the evaluation function.
-
         If cases are included in the params, this function checks for
         matching answers and returns the specified feedback.
 
     Args:
-        event (JsonType): The dictionary received by the gateway. Must
-        include a body field which may be a JSON string or a dictionary.
-        fnc (Optional[EvaluationFunctionType]): A function to override the
-        current evaluation function (for testing). Defaults to None.
+        body (JsonType): The validated request body.
 
     Returns:
         Response: The result given the response and params in the body.
     """
-    body = parse.body(event)
-    validate.body(body, ReqBodyValidators.EVALUATION)
-
     params = body.get("params", {})
 
     if evaluation_function is None:

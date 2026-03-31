@@ -1,9 +1,9 @@
 from evaluation_function_utils.errors import EvaluationException
 
-from .tools import commands, docs, validate
+from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
 from .tools.utils import ErrorResponse, HandlerResponse, JsonType, Response
-from .tools.validate import ResBodyValidators, ValidationError
+from .tools.validate import ReqBodyValidators, ResBodyValidators, ValidationError
 
 
 def handle_command(event: JsonType, command: str) -> HandlerResponse:
@@ -23,17 +23,22 @@ def handle_command(event: JsonType, command: str) -> HandlerResponse:
     elif command == "docs-user":
         return docs.user()
 
-    elif command in ("eval", "grade"):
-        response = commands.evaluate(event)
+    body = parse.body(event)
+
+    if command in ("eval", "grade"):
+        validate.body(body, ReqBodyValidators.EVALUATION)
+        response = commands.evaluate(body)
         validator = ResBodyValidators.EVALUATION
 
     elif command == "preview":
-        response = commands.preview(event)
+        validate.body(body, ReqBodyValidators.PREVIEW)
+        response = commands.preview(body)
         validator = ResBodyValidators.PREVIEW
 
     elif command == "healthcheck":
         response = commands.healthcheck()
         validator = ResBodyValidators.HEALTHCHECK
+
     else:
         response = Response(
             error=ErrorResponse(message=f"Unknown command '{command}'.")

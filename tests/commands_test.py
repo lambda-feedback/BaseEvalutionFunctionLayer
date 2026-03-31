@@ -3,7 +3,8 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from ..tools import commands, parse, validate
+from ..handler import handler
+from ..tools import commands
 from ..tools.utils import JsonType
 
 _SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
@@ -35,53 +36,45 @@ class TestCommandsModule(unittest.TestCase):
         return super().tearDown()
 
     def test_valid_eval_command(self):
-        event = {
-            "body": {"response": "hello", "answer": "world", "params": {}}
-        }
-        response = commands.evaluate(event)
+        body = {"response": "hello", "answer": "world", "params": {}}
+        response = commands.evaluate(body)
 
         self.assertIn("result", response)
         self.assertIn("is_correct", response["result"])  # type: ignore
 
     def test_invalid_eval_args_raises_parse_error(self):
-        event = {"headers": "any", "other": "params"}
-
-        with self.assertRaises(parse.ParseError) as e:
-            commands.evaluate(event)
-
+        event = {"headers": {"command": "eval"}, "other": "params"}
+        response = handler(event)
+        self.assertIn("error", response)
         self.assertEqual(
-            e.exception.message, "No data supplied in request body."
+            response["error"]["message"], "No data supplied in request body."  # type: ignore
         )
 
     def test_invalid_eval_schema_raises_validation_error(self):
-        event = {"body": {"response": "hello", "params": {}}}
-
-        with self.assertRaises(validate.ValidationError) as e:
-            commands.evaluate(event)
-
+        event = {"headers": {"command": "eval"}, "body": {"response": "hello", "params": {}}}
+        response = handler(event)
+        self.assertIn("error", response)
         self.assertEqual(
-            e.exception.message,
+            response["error"]["message"],  # type: ignore
             "Failed to validate body against the evaluation schema.",
         )
 
     def test_single_feedback_case(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "hello",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "other",
-                            "feedback": "should be 'other'.",
-                            "mark": 0,
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "hello",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "other",
+                        "feedback": "should be 'other'.",
+                        "mark": 0,
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
@@ -89,22 +82,20 @@ class TestCommandsModule(unittest.TestCase):
         self.assertNotIn("feedback", result)
 
     def test_single_feedback_case_match(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
@@ -112,21 +103,19 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_case_warning_data_structure(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "feedback": "should be 'hello'.",
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "feedback": "should be 'hello'.",
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertIn("warnings", result)
@@ -138,30 +127,28 @@ class TestCommandsModule(unittest.TestCase):
         )
 
     def test_multiple_feedback_cases_single_match(self):
-        event = {
-            "body": {
-                "response": "yes",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                        },
-                        {
-                            "answer": "yes",
-                            "feedback": "should be 'yes'.",
-                        },
-                        {
-                            "answer": "no",
-                            "feedback": "should be 'no'.",
-                        },
-                    ]
-                },
-            }
+        body = {
+            "response": "yes",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                    },
+                    {
+                        "answer": "yes",
+                        "feedback": "should be 'yes'.",
+                    },
+                    {
+                        "answer": "no",
+                        "feedback": "should be 'no'.",
+                    },
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
@@ -169,31 +156,29 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'yes'.")
 
     def test_multiple_feedback_cases_multiple_matches(self):
-        event = {
-            "body": {
-                "response": "yes",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                            "params": {"force": True},
-                        },
-                        {
-                            "answer": "yes",
-                            "feedback": "should be 'yes'.",
-                        },
-                        {
-                            "answer": "no",
-                            "feedback": "should be 'no'.",
-                        },
-                    ]
-                },
-            }
+        body = {
+            "response": "yes",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                        "params": {"force": True},
+                    },
+                    {
+                        "answer": "yes",
+                        "feedback": "should be 'yes'.",
+                    },
+                    {
+                        "answer": "no",
+                        "feedback": "should be 'no'.",
+                    },
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
@@ -201,24 +186,22 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_case_params_overwrite_eval_params(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "world",
-                "params": {
-                    "force": True,
-                    "cases": [
-                        {
-                            "answer": "yes",
-                            "feedback": "should be 'yes'.",
-                            "params": {"force": False},
-                        }
-                    ],
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "world",
+            "params": {
+                "force": True,
+                "cases": [
+                    {
+                        "answer": "yes",
+                        "feedback": "should be 'yes'.",
+                        "params": {"force": False},
+                    }
+                ],
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
@@ -226,23 +209,21 @@ class TestCommandsModule(unittest.TestCase):
         self.assertNotIn("feedback", result)
 
     def test_invalid_case_entry_doesnt_raise_exception(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                            "params": {"raise": True},
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                        "params": {"raise": True},
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertIn("warnings", result)
@@ -259,31 +240,29 @@ class TestCommandsModule(unittest.TestCase):
         )
 
     def test_first_matching_case_stops_evaluation(self):
-        event = {
-            "body": {
-                "response": "yes",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                            "params": {"force": True},
-                        },
-                        {
-                            "answer": "yes",
-                            "feedback": "should be 'yes'.",
-                        },
-                        {
-                            "answer": "no",
-                            "feedback": "should be 'no'.",
-                        },
-                    ]
-                },
-            }
+        body = {
+            "response": "yes",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                        "params": {"force": True},
+                    },
+                    {
+                        "answer": "yes",
+                        "feedback": "should be 'yes'.",
+                    },
+                    {
+                        "answer": "no",
+                        "feedback": "should be 'no'.",
+                    },
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertNotIn("warnings", result)
@@ -291,23 +270,21 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_overriding_eval_feedback_to_correct_case(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "world",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                            "mark": 1,
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "world",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                        "mark": 1,
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertTrue(result["is_correct"])
@@ -315,23 +292,21 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_overriding_eval_feedback_to_incorrect_case(self):
-        event = {
-            "body": {
-                "response": "hello",
-                "answer": "hola",
-                "params": {
-                    "cases": [
-                        {
-                            "answer": "hello",
-                            "feedback": "should be 'hello'.",
-                            "mark": 0,
-                        }
-                    ]
-                },
-            }
+        body = {
+            "response": "hello",
+            "answer": "hola",
+            "params": {
+                "cases": [
+                    {
+                        "answer": "hello",
+                        "feedback": "should be 'hello'.",
+                        "mark": 0,
+                    }
+                ]
+            },
         }
 
-        response = commands.evaluate(event)
+        response = commands.evaluate(body)
         result = response["result"]  # type: ignore
 
         self.assertFalse(result["is_correct"])
@@ -339,31 +314,27 @@ class TestCommandsModule(unittest.TestCase):
         self.assertEqual(result["feedback"], "should be 'hello'.")
 
     def test_valid_preview_command(self):
-        event = {"body": {"response": "hello"}}
+        body = {"response": "hello"}
 
-        response = commands.preview(event)
+        response = commands.preview(body)
         result = response["result"]  # type: ignore
 
         self.assertEqual(result["preview"], "hello")
 
     def test_invalid_preview_args_raises_parse_error(self):
-        event = {"headers": "any", "other": "params"}
-
-        with self.assertRaises(parse.ParseError) as e:
-            commands.preview(event)
-
+        event = {"headers": {"command": "preview"}, "other": "params"}
+        response = handler(event)
+        self.assertIn("error", response)
         self.assertEqual(
-            e.exception.message, "No data supplied in request body."
+            response["error"]["message"], "No data supplied in request body."  # type: ignore
         )
 
     def test_invalid_preview_schema_raises_validation_error(self):
-        event = {"body": {"response": "hello", "answer": "hello"}}
-
-        with self.assertRaises(validate.ValidationError) as e:
-            commands.preview(event)
-
+        event = {"headers": {"command": "preview"}, "body": {"response": "hello", "answer": "hello"}}
+        response = handler(event)
+        self.assertIn("error", response)
         self.assertEqual(
-            e.exception.message,
+            response["error"]["message"],  # type: ignore
             "Failed to validate body against the preview schema.",
         )
 
