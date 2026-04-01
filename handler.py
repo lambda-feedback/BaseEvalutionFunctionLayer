@@ -3,7 +3,7 @@ from evaluation_function_utils.errors import EvaluationException
 from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
 from .tools.utils import ErrorResponse, HandlerResponse, JsonType, Response
-from .tools.validate import ReqBodyValidators, ResBodyValidators, ValidationError
+from .tools.validate import LegacyReqBodyValidators as ReqBodyValidators, LegacyResBodyValidators as ResBodyValidators, ValidationError
 
 
 def handle_command(event: JsonType, command: str) -> HandlerResponse:

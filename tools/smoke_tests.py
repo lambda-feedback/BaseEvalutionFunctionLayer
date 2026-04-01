@@ -65,35 +65,35 @@ class SmokeTests(unittest.TestCase):
 
     def test_load_eval_req_schema(self):
         schema = validate.load_validator_from_url(
-            validate.ReqBodyValidators.EVALUATION
+            validate.LegacyReqBodyValidators.EVALUATION
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_preview_req_schema(self):
         schema = validate.load_validator_from_url(
-            validate.ReqBodyValidators.PREVIEW
+            validate.LegacyReqBodyValidators.PREVIEW
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_eval_res_schema(self):
         schema = validate.load_validator_from_url(
-            validate.ResBodyValidators.EVALUATION
+            validate.LegacyResBodyValidators.EVALUATION
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_preview_res_schema(self):
         schema = validate.load_validator_from_url(
-            validate.ResBodyValidators.PREVIEW
+            validate.LegacyResBodyValidators.PREVIEW
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_health_res_schema(self):
         schema = validate.load_validator_from_url(
-            validate.ResBodyValidators.HEALTHCHECK
+            validate.LegacyResBodyValidators.HEALTHCHECK
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)

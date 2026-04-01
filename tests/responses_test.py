@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from ..tools import validate
-from ..tools.validate import ResBodyValidators, ValidationError
+from ..tools.validate import LegacyResBodyValidators as ResBodyValidators, ValidationError
 
 _SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
 
