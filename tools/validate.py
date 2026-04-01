@@ -39,18 +39,18 @@ class ValidationError(Exception):
 class ReqBodyValidators(enum.Enum):
     """Enum for all request body validators."""
 
-    ORIGINAL = "request.json"
-    EVALUATION = "request/eval.json"
-    PREVIEW = "request/preview.json"
+    ORIGINAL = "legacy/request.json"
+    EVALUATION = "legacy/request/eval.json"
+    PREVIEW = "legacy/request/preview.json"
 
 
 class ResBodyValidators(enum.Enum):
     """Enum for all response body validators."""
 
-    ORIGINAL = "responsev2.json"
-    EVALUATION = "response/eval.json"
-    PREVIEW = "response/preview.json"
-    HEALTHCHECK = "response/healthcheck.json"
+    ORIGINAL = "legacy/responsev2.json"
+    EVALUATION = "legacy/response/eval.json"
+    PREVIEW = "legacy/response/preview.json"
+    HEALTHCHECK = "legacy/response/healthcheck.json"
 
 
 BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
