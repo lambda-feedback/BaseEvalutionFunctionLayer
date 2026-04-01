@@ -36,7 +36,7 @@ class ValidationError(Exception):
 """Enumeration objects for picking which schema to validate against."""
 
 
-class ReqBodyValidators(enum.Enum):
+class LegacyReqBodyValidators(enum.Enum):
     """Enum for all request body validators."""
 
     ORIGINAL = "legacy/request.json"
@@ -44,7 +44,7 @@ class ReqBodyValidators(enum.Enum):
     PREVIEW = "legacy/request/preview.json"
 
 
-class ResBodyValidators(enum.Enum):
+class LegacyResBodyValidators(enum.Enum):
     """Enum for all response body validators."""
 
     ORIGINAL = "legacy/responsev2.json"
@@ -53,7 +53,7 @@ class ResBodyValidators(enum.Enum):
     HEALTHCHECK = "legacy/response/healthcheck.json"
 
 
-BodyValidators = Union[ReqBodyValidators, ResBodyValidators]
+BodyValidators = Union[LegacyReqBodyValidators, LegacyResBodyValidators]
 
 def load_validator(
     validator_enum: BodyValidators,
