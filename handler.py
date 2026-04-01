@@ -50,15 +50,18 @@ def handle_command(event: JsonType, command: str) -> HandlerResponse:
     return response
 
 
-def handler(event: JsonType, _: JsonType = {}) -> HandlerResponse:
+def handler(event: JsonType, _=None) -> HandlerResponse:
     """Main function invoked by AWS Lambda to handle incoming requests.
 
     Args:
         event (JsonType): The AWS Lambda event received by the gateway.
+        _ (JsonType): The AWS Lambda context object (unused).
 
     Returns:
         HandlerResponse: The response to return back to the requestor.
     """
+    if _ is None:
+        _ = {}
     headers = event.get("headers", dict())
     command = headers.get("command", "eval")
 

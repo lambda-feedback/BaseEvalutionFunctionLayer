@@ -3,6 +3,8 @@ import functools
 import os
 from typing import Dict, List, TypedDict, Union
 
+from .utils import Response
+
 import dotenv
 import jsonschema
 import jsonschema.exceptions
@@ -82,11 +84,11 @@ def load_validator(
     return jsonschema.Draft7Validator(schema)
 
 
-def body(body: Dict, validator_enum: BodyValidators) -> None:
+def body(body: Union[Dict, Response], validator_enum: BodyValidators) -> None:
     """Validate the body of a request using the request-respone-schemas.
 
     Args:
-        body (Dict): The body object to validate.
+        body (Union[Dict, Response]): The body object to validate.
         validator_enum (BodyValidators): The enum name of the validator to use.
 
     Raises:
