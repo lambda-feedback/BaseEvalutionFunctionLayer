@@ -3,11 +3,16 @@ from evaluation_function_utils.errors import EvaluationException
 from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
 from .tools.utils import ErrorResponse, HandlerResponse, JsonType, Response
-from .tools.validate import LegacyReqBodyValidators as ReqBodyValidators, LegacyResBodyValidators as ResBodyValidators, ValidationError
+from .tools.validate import (
+    LegacyReqBodyValidators,
+    LegacyResBodyValidators,
+    MuEdReqBodyValidators,
+    ValidationError,
+)
 
 
-def handle_command(event: JsonType, command: str) -> HandlerResponse:
-    """Switch case for handling different command options.
+def handle_legacy_command(event: JsonType, command: str) -> HandlerResponse:
+    """Switch case for handling different command options using legacy schemas.
 
     Args:
         event (JsonType): The AWS Lambda event recieved by the handler.
@@ -24,29 +29,58 @@ def handle_command(event: JsonType, command: str) -> HandlerResponse:
         return docs.user()
 
     body = parse.body(event)
+    response: Response
+    validator: LegacyResBodyValidators
 
     if command in ("eval", "grade"):
-        validate.body(body, ReqBodyValidators.EVALUATION)
+        validate.body(body, LegacyReqBodyValidators.EVALUATION)
         response = commands.evaluate(body)
-        validator = ResBodyValidators.EVALUATION
+        validator = LegacyResBodyValidators.EVALUATION
 
     elif command == "preview":
-        validate.body(body, ReqBodyValidators.PREVIEW)
+        validate.body(body, LegacyReqBodyValidators.PREVIEW)
         response = commands.preview(body)
-        validator = ResBodyValidators.PREVIEW
+        validator = LegacyResBodyValidators.PREVIEW
 
     elif command == "healthcheck":
         response = commands.healthcheck()
-        validator = ResBodyValidators.HEALTHCHECK
+        validator = LegacyResBodyValidators.HEALTHCHECK
 
     else:
         response = Response(
             error=ErrorResponse(message=f"Unknown command '{command}'.")
         )
-        validator = ResBodyValidators.EVALUATION
+        validator = LegacyResBodyValidators.EVALUATION
 
     validate.body(response, validator)
 
+    return response
+
+
+def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
+    """Switch case for handling different command options using muEd schemas.
+
+    Args:
+        event (JsonType): The AWS Lambda event recieved by the handler.
+        command (str): The name of the function to invoke.
+
+    Returns:
+        HandlerResponse: The response object returned by the handler.
+    """
+    if command == "eval":
+        body = parse.body(event)
+        validate.body(body, MuEdReqBodyValidators.EVALUATION)
+        response = commands.evaluate(body)
+
+    elif command == "healthcheck":
+        response = commands.healthcheck()
+
+    else:
+        response = Response(
+            error=ErrorResponse(message=f"Unknown command '{command}'.")
+        )
+
+    # TODO: validate response against MuEd schema once commands return muEd format
     return response
 
 
@@ -62,11 +96,20 @@ def handler(event: JsonType, _=None) -> HandlerResponse:
     """
     if _ is None:
         _ = {}
-    headers = event.get("headers", dict())
-    command = headers.get("command", "eval")
+
+    path = event.get("path", "/")
 
     try:
-        return handle_command(event, command)
+        if path == "/evaluate":
+            return handle_muEd_command(event, "eval")
+
+        elif path == "/health":
+            return handle_muEd_command(event, "healthcheck")
+
+        else:
+            headers = event.get("headers", dict())
+            command = headers.get("command", "eval")
+            return handle_legacy_command(event, command)
 
     except (ParseError, ValidationError) as e:
         error = ErrorResponse(message=e.message, detail=e.error_thrown)
