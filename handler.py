@@ -7,6 +7,7 @@ from .tools.validate import (
     LegacyReqBodyValidators,
     LegacyResBodyValidators,
     MuEdReqBodyValidators,
+    MuEdResBodyValidators,
     ValidationError,
 )
 
@@ -70,7 +71,8 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     if command == "eval":
         body = parse.body(event)
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
-        response = commands.evaluate(body)
+        response = commands.evaluate_muEd(body)
+        validate.body(response, MuEdResBodyValidators.EVALUATION)
 
     elif command == "healthcheck":
         response = commands.healthcheck()
@@ -80,7 +82,6 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
             error=ErrorResponse(message=f"Unknown command '{command}'.")
         )
 
-    # TODO: validate response against MuEd schema once commands return muEd format
     return response
 
 

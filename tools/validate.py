@@ -12,7 +12,7 @@ from pydantic import BaseModel
 from .utils import Response
 from ..schemas.muEd.mued_api_v0_1_0 import (
     EvaluateRequest,
-    EvaluateAcceptedResponse,
+    EvaluateSyncResponse,
     EvaluateHealthResponse,
 )
 
@@ -68,7 +68,7 @@ class MuEdReqBodyValidators(enum.Enum):
 class MuEdResBodyValidators(enum.Enum):
     """Enum for muEd response body validators."""
 
-    EVALUATION = EvaluateAcceptedResponse
+    EVALUATION = EvaluateSyncResponse
     HEALTHCHECK = EvaluateHealthResponse
 
 
@@ -136,7 +136,7 @@ def _validate_legacy(
 
 
 def _validate_pydantic(
-    body: Union[Dict, Response],
+    body: Union[Dict, List, Response],
     validator_enum: Union[MuEdReqBodyValidators, MuEdResBodyValidators],
 ) -> None:
     model_class: Type[BaseModel] = validator_enum.value
@@ -157,11 +157,11 @@ def _validate_pydantic(
     )
 
 
-def body(body: Union[Dict, Response], validator_enum: BodyValidators) -> None:
+def body(body: Union[Dict, List, Response], validator_enum: BodyValidators) -> None:
     """Validate the body of a request using the request-response schemas.
 
     Args:
-        body (Union[Dict, Response]): The body object to validate.
+        body (Union[Dict, List, Response]): The body object to validate.
         validator_enum (BodyValidators): The enum name of the validator to use.
 
     Raises:

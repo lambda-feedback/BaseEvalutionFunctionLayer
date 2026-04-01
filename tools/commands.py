@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict, Union
 
 from evaluation_function_utils.errors import EvaluationException
 
@@ -89,33 +89,28 @@ def preview(
     return Response(command="preview", result=result)
 
 
-def evaluate(body: JsonType) -> Response:
-    """Run the evaluation command for the evaluation function.
-
-    Note:
-        If cases are included in the params, this function checks for
-        matching answers and returns the specified feedback.
+def _run_evaluation(response: Any, answer: Any, params: Dict) -> Dict:
+    """Core evaluation logic shared by legacy and muEd command functions.
 
     Args:
-        body (JsonType): The validated request body.
+        response (Any): The student's response.
+        answer (Any): The reference answer.
+        params (Dict): The evaluation parameters.
 
     Returns:
-        Response: The result given the response and params in the body.
+        Dict: The raw result from the evaluation function, with case
+        feedback applied if applicable.
     """
-    params = body.get("params", {})
-
     if evaluation_function is None:
         raise EvaluationException("Evaluation function is not defined.")
 
-    result = evaluation_function(body["response"], body["answer"], params)
+    result = evaluation_function(response, answer, params)
 
     if result["is_correct"] is False and "cases" in params and len(params["cases"]) > 0:
-        match, warnings = get_case_feedback(
-            body["response"], params, params["cases"]
-        )
+        match, case_warnings = get_case_feedback(response, params, params["cases"])
 
-        if warnings:
-            result["warnings"] = warnings
+        if case_warnings:
+            result["warnings"] = case_warnings
 
         if match is not None:
             result["feedback"] = match["feedback"]
@@ -126,7 +121,42 @@ def evaluate(body: JsonType) -> Response:
             if "mark" in match:
                 result["is_correct"] = bool(int(match["mark"]))
 
+    return result
+
+
+def evaluate(body: JsonType) -> Response:
+    """Run the evaluation command for the evaluation function (legacy format).
+
+    Args:
+        body (JsonType): The validated request body.
+
+    Returns:
+        Response: The result given the response and params in the body.
+    """
+    params = body.get("params", {})
+    result = _run_evaluation(body["response"], body["answer"], params)
     return Response(command="eval", result=result)
+
+
+def evaluate_muEd(body: JsonType) -> List[Dict]:
+    """Run the evaluation command for the evaluation function (muEd format).
+
+    Args:
+        body (JsonType): The validated muEd request body.
+
+    Returns:
+        List[Dict]: A list of Feedback items.
+    """
+    answer = body["task"].get("referenceSolution") if body.get("task") else None
+    result = _run_evaluation(body["submission"], answer, {})
+
+    feedback_text = result.get("feedback", "")
+    return [
+        {
+            "feedbackId": "fb-1",
+            "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
+        }
+    ]
 
 
 def get_case_feedback(

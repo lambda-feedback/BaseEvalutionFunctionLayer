@@ -939,3 +939,8 @@ class ChatHealthResponse(BaseModel):
         Field(description='Optional version of the chat service implementation.'),
     ] = None
     capabilities: ChatCapabilities
+
+
+class EvaluateSyncResponse(RootModel[list[Feedback]]):
+    """Synchronous evaluate response: a list of Feedback items."""
+    pass
