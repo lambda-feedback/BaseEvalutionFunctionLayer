@@ -1,22 +1,25 @@
 import enum
+import json
 import os
-from typing import Dict, List, Type, TypedDict, Union
+from typing import Dict, List, TypedDict, Union
 
 import dotenv
 import jsonschema
 import jsonschema.exceptions
-import json
-import pydantic
-from pydantic import BaseModel
+import yaml
 
 from .utils import Response
-from ..schemas.muEd.mued_api_v0_1_0 import (
-    EvaluateRequest,
-    EvaluateSyncResponse,
-    EvaluateHealthResponse,
-)
 
 dotenv.load_dotenv()
+
+_openapi_spec = None
+
+# EvaluateResponse is not a named schema in the OpenAPI spec — the evaluate
+# endpoint returns an inline array of Feedback items.
+_EVALUATE_RESPONSE_SCHEMA = {
+    "type": "array",
+    "items": {"$ref": "#/components/schemas/Feedback"},
+}
 
 
 class SchemaErrorThrown(TypedDict):
@@ -62,14 +65,14 @@ class LegacyResBodyValidators(enum.Enum):
 class MuEdReqBodyValidators(enum.Enum):
     """Enum for muEd request body validators."""
 
-    EVALUATION = EvaluateRequest
+    EVALUATION = "EvaluateRequest"
 
 
 class MuEdResBodyValidators(enum.Enum):
     """Enum for muEd response body validators."""
 
-    EVALUATION = EvaluateSyncResponse
-    HEALTHCHECK = EvaluateHealthResponse
+    EVALUATION = "EvaluateResponse"
+    HEALTHCHECK = "EvaluateHealthResponse"
 
 
 BodyValidators = Union[
@@ -78,6 +81,23 @@ BodyValidators = Union[
     MuEdReqBodyValidators,
     MuEdResBodyValidators,
 ]
+
+
+def _get_openapi_spec() -> dict:
+    """Load and cache the muEd OpenAPI spec."""
+    global _openapi_spec
+    if _openapi_spec is None:
+        schema_dir = os.getenv("SCHEMA_DIR")
+        if schema_dir is not None:
+            spec_path = os.path.join(schema_dir, "muEd", "openapi-v0_1_0.yml")
+        else:
+            spec_path = os.path.join(
+                os.path.dirname(os.path.dirname(__file__)),
+                "schemas", "muEd", "openapi-v0_1_0.yml",
+            )
+        with open(spec_path) as f:
+            _openapi_spec = yaml.safe_load(f)
+    return _openapi_spec
 
 
 def load_validator(
@@ -89,14 +109,14 @@ def load_validator(
         validator_enum (Union[LegacyReqBodyValidators, LegacyResBodyValidators]): The validator enum name.
 
     Raises:
-        ValueError: Raised if the schema repo URL cannot be found.
+        RuntimeError: Raised if the schema directory cannot be found.
 
     Returns:
         Draft7Validator: The validator to use.
     """
     schema_dir = os.getenv("SCHEMA_DIR")
     if schema_dir is None:
-        raise RuntimeError("No schema path suplied.")
+        raise RuntimeError("No schema path supplied.")
 
     schema_path = os.path.join(schema_dir, validator_enum.value)
 
@@ -116,7 +136,6 @@ def _validate_legacy(
     try:
         validator = load_validator(validator_enum)
         validator.validate(body)
-
         return
 
     except jsonschema.exceptions.ValidationError as e:
@@ -135,20 +154,27 @@ def _validate_legacy(
     )
 
 
-def _validate_pydantic(
+def _validate_openapi(
     body: Union[Dict, List, Response],
     validator_enum: Union[MuEdReqBodyValidators, MuEdResBodyValidators],
 ) -> None:
-    model_class: Type[BaseModel] = validator_enum.value
-    try:
-        model_class.model_validate(body)
+    spec = _get_openapi_spec()
+    resolver = jsonschema.RefResolver(base_uri="", referrer=spec)
 
+    schema_name = validator_enum.value
+    if schema_name == "EvaluateResponse":
+        schema = _EVALUATE_RESPONSE_SCHEMA
+    else:
+        schema = spec["components"]["schemas"][schema_name]
+
+    try:
+        jsonschema.validate(body, schema, resolver=resolver)
         return
 
-    except pydantic.ValidationError as e:
-        error_thrown: Union[str, SchemaErrorThrown] = str(e)
+    except jsonschema.exceptions.ValidationError as e:
+        error_thrown: str = e.message
     except Exception as e:
-        error_thrown = str(e) if str(e) != "" else repr(e)
+        error_thrown = str(e)
 
     raise ValidationError(
         "Failed to validate body against the "
@@ -169,6 +195,6 @@ def body(body: Union[Dict, List, Response], validator_enum: BodyValidators) -> N
         be obtained.
     """
     if isinstance(validator_enum, (MuEdReqBodyValidators, MuEdResBodyValidators)):
-        _validate_pydantic(body, validator_enum)
+        _validate_openapi(body, validator_enum)
     else:
         _validate_legacy(body, validator_enum)

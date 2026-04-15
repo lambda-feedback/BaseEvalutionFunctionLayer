@@ -16,19 +16,19 @@ if not spec.startswith("https://") and not Path(spec).exists():
     raise SystemExit(f"Spec file not found: {spec}")
 
 # --- output: versioned filename to mirror mued-api-{version}.ts convention ---
-out = Path(__file__).parent.parent / "lf_toolkit" / "shared" / f"mued_api_{version}.py"
+out = Path(__file__).parent.parent / "schemas" / "muEd" / f"mued_api_{version}.py"
 
 print(f"Generating mued types from: {spec}")
 subprocess.run(
     [
-        sys.executable, "-m", "datamodel_code_generator",
+        "datamodel-codegen",
         "--input", spec,
         "--input-file-type", "openapi",
         "--output", str(out),
         "--output-model-type", "pydantic_v2.BaseModel",
         "--use-annotated",
         "--use-standard-collections",
-        "--target-python-version", "3.11",
+        "--target-python-version", "3.8",
         "--extra-fields", "allow",
     ],
     check=True,

@@ -34,20 +34,20 @@ class TestMuEdRequestValidation(unittest.TestCase):
         self.assertIn("type", e.exception.error_thrown)  # type: ignore
 
     def test_invalid_submission_type(self):
-        body = {"submission": {"type": "INVALID"}}
+        body = {"submission": {"type": "INVALID", "content": {}}}
 
         with self.assertRaises(ValidationError) as e:
             validate.body(body, MuEdReqBodyValidators.EVALUATION)
 
-        self.assertIn("type", e.exception.error_thrown)  # type: ignore
+        self.assertIn("INVALID", e.exception.error_thrown)  # type: ignore
 
     def test_extra_fields_allowed(self):
-        # EvaluateRequest uses extra='allow' — unknown fields should not raise
-        body = {"submission": {"type": "TEXT"}, "unknown_field": "value"}
+        # EvaluateRequest allows additional properties — unknown fields should not raise
+        body = {"submission": {"type": "TEXT", "content": {}}, "unknown_field": "value"}
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
 
     def test_valid_minimal_request(self):
-        body = {"submission": {"type": "TEXT"}}
+        body = {"submission": {"type": "TEXT", "content": {}}}
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
 
     def test_valid_request_with_task(self):

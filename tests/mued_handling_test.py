@@ -28,7 +28,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
     def test_evaluate_returns_feedback_list(self):
         event = {
             "path": "/evaluate",
-            "body": {"submission": {"type": "TEXT"}},
+            "body": {"submission": {"type": "TEXT", "content": {}}},
         }
 
         response = handler(event)

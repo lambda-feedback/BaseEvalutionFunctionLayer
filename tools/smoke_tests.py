@@ -64,35 +64,35 @@ class SmokeTests(unittest.TestCase):
         self.assertTrue(result["isBase64Encoded"])
 
     def test_load_eval_req_schema(self):
-        schema = validate.load_validator_from_url(
+        schema = validate.load_validator(
             validate.LegacyReqBodyValidators.EVALUATION
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_preview_req_schema(self):
-        schema = validate.load_validator_from_url(
+        schema = validate.load_validator(
             validate.LegacyReqBodyValidators.PREVIEW
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_eval_res_schema(self):
-        schema = validate.load_validator_from_url(
+        schema = validate.load_validator(
             validate.LegacyResBodyValidators.EVALUATION
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_preview_res_schema(self):
-        schema = validate.load_validator_from_url(
+        schema = validate.load_validator(
             validate.LegacyResBodyValidators.PREVIEW
         )
 
         self.assertIsInstance(schema, jsonschema.Draft7Validator)
 
     def test_load_health_res_schema(self):
-        schema = validate.load_validator_from_url(
+        schema = validate.load_validator(
             validate.LegacyResBodyValidators.HEALTHCHECK
         )
 

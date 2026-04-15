@@ -147,8 +147,22 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
     Returns:
         List[Dict]: A list of Feedback items.
     """
-    answer = body["task"].get("referenceSolution") if body.get("task") else None
-    result = _run_evaluation(body["submission"], answer, {})
+    submission = body["submission"]
+    sub_type = submission.get("type", "MATH")
+    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
+    content_key = _type_key.get(sub_type, "value")
+
+    response = submission.get("content", {}).get(content_key)
+
+    task = body.get("task")
+    if task:
+        ref = task.get("referenceSolution") or {}
+        answer = ref.get(content_key)
+    else:
+        answer = None
+
+    params = body.get("configuration", {}).get("params", {})
+    result = _run_evaluation(response, answer, params)
 
     feedback_text = result.get("feedback", "")
     return [
