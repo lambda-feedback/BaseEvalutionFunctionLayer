@@ -118,5 +118,71 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         self.assertIn("result", response)
 
 
+class TestMuEdEvaluateExtraction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self.captured: dict = {}
+        captured = self.captured
+
+        def capturing_eval(response, answer, params):
+            captured["response"] = response
+            captured["answer"] = answer
+            captured["params"] = params
+            return {"is_correct": True, "feedback": "Captured."}
+
+        commands.evaluation_function = capturing_eval
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_math_submission_extracts_expression(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
+            },
+        }
+        handler(event)
+        self.assertEqual(self.captured["response"], "x+1")
+        self.assertEqual(self.captured["answer"], "x+1")
+
+    def test_text_submission_extracts_text(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "TEXT", "content": {"text": "hello"}},
+                "task": {"title": "T", "referenceSolution": {"text": "hello"}},
+            },
+        }
+        handler(event)
+        self.assertEqual(self.captured["response"], "hello")
+        self.assertEqual(self.captured["answer"], "hello")
+
+    def test_configuration_params_forwarded(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "configuration": {"params": {"strict_syntax": False}},
+            },
+        }
+        handler(event)
+        self.assertEqual(self.captured["params"], {"strict_syntax": False})
+
+    def test_no_task_answer_is_none(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+            },
+        }
+        handler(event)
+        self.assertIsNone(self.captured["answer"])
+
+
 if __name__ == "__main__":
     unittest.main()
