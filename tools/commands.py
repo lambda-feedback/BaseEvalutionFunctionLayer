@@ -153,6 +153,7 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
     content_key = _type_key.get(sub_type, "value")
 
     response = submission.get("content", {}).get(content_key)
+    params = body.get("configuration", {}).get("params", {})
 
     task = body.get("task")
     if task:
@@ -161,14 +162,12 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
     else:
         answer = None
 
-    params = body.get("configuration", {}).get("params", {})
     result = _run_evaluation(response, answer, params)
 
     is_correct = result.get("is_correct", 0)
     feedback_text = result.get("feedback", "")
 
     feedback_item: Dict = {
-        "feedbackId": "fb-1",
         "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
         "awardedPoints": int(is_correct),
     }
@@ -177,6 +176,29 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
         feedback_item["tags"] = result["tags"]
 
     return [feedback_item]
+
+
+def preview_muEd(body: JsonType) -> List[Dict]:
+    """Run the preview command for the evaluation function (muEd format).
+
+    Args:
+        body (JsonType): The validated muEd request body.
+
+    Returns:
+        List[Dict]: A list containing a single Feedback item with preview data.
+    """
+    submission = body["submission"]
+    sub_type = submission.get("type", "MATH")
+    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
+    content_key = _type_key.get(sub_type, "value")
+
+    response = submission.get("content", {}).get(content_key)
+    params = body.get("configuration", {}).get("params", {})
+
+    preview_result = preview_function(response, params)
+    return [{
+        "preSubmissionFeedback": preview_result.get("preview", {}),
+    }]
 
 
 def get_case_feedback(

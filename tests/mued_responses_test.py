@@ -17,31 +17,22 @@ class TestMuEdResponseValidation(unittest.TestCase):
             "Failed to validate body against the evaluation schema.",
         )
 
-    def test_feedback_missing_feedbackId(self):
-        body = [{"message": "Good attempt."}]
-
-        with self.assertRaises(ValidationError) as e:
-            validate.body(body, MuEdResBodyValidators.EVALUATION)
-
-        self.assertIn("feedbackId", e.exception.error_thrown)  # type: ignore
-
     def test_valid_empty_list(self):
         body = []
         validate.body(body, MuEdResBodyValidators.EVALUATION)
 
     def test_valid_minimal_feedback(self):
-        body = [{"feedbackId": "fb-1"}]
+        body = [{"message": "Good attempt."}]
         validate.body(body, MuEdResBodyValidators.EVALUATION)
 
     def test_extra_fields_allowed(self):
         # Feedback uses extra='allow' — unknown fields should not raise
-        body = [{"feedbackId": "fb-1", "unknown_field": "value"}]
+        body = [{"unknown_field": "value"}]
         validate.body(body, MuEdResBodyValidators.EVALUATION)
 
     def test_valid_full_feedback(self):
         body = [
             {
-                "feedbackId": "fb-1",
                 "title": "Correctness",
                 "message": "Your answer is correct.",
                 "suggestedAction": "Review the concept further.",
@@ -53,8 +44,8 @@ class TestMuEdResponseValidation(unittest.TestCase):
 
     def test_multiple_feedback_items(self):
         body = [
-            {"feedbackId": "fb-1", "message": "Well structured."},
-            {"feedbackId": "fb-2", "message": "Good use of examples."},
+            {"message": "Well structured."},
+            {"message": "Good use of examples."},
         ]
         validate.body(body, MuEdResBodyValidators.EVALUATION)
 

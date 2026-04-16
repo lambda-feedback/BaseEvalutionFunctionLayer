@@ -20,7 +20,6 @@ _EVALUATE_RESPONSE_SCHEMA = {
     "type": "array",
     "items": {
         "type": "object",
-        "required": ["feedbackId"],
         "properties": {
             "feedbackId": {"type": "string"},
         },

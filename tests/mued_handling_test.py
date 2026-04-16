@@ -35,7 +35,6 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         self.assertIsInstance(response, list)
         self.assertEqual(len(response), 1)
-        self.assertIn("feedbackId", response[0])
         self.assertIn("awardedPoints", response[0])
 
     def test_evaluate_feedback_message(self):
@@ -65,7 +64,6 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         response = handler(event)
 
         self.assertIsInstance(response, list)
-        self.assertIn("feedbackId", response[0])
 
     def test_evaluate_missing_submission_returns_error(self):
         event = {
@@ -188,6 +186,177 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
         result = handler(event)
         self.assertIsNone(self.captured["answer"])
         self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+
+class TestMuEdPreviewHandlerFunction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        commands.preview_function = lambda response, params: {
+            "preview": {"latex": f"\\text{{{response}}}", "sympy": response}
+        }
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.preview_function = None
+        return super().tearDown()
+
+    def test_preview_returns_feedback_list(self):
+        event = {
+            "path": "/preview",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(len(response), 1)
+
+    def test_preview_feedback_id_is_preSubmissionFeedback(self):
+        event = {
+            "path": "/preview",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertNotIn("feedbackId", response[0])  # type: ignore
+
+    def test_preview_contains_preSubmissionFeedback_field(self):
+        event = {
+            "path": "/preview",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertIn("preSubmissionFeedback", response[0])  # type: ignore
+
+    def test_preview_preSubmissionFeedback_has_latex_and_sympy(self):
+        event = {
+            "path": "/preview",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        preview = response[0]["preSubmissionFeedback"]  # type: ignore
+        self.assertIn("latex", preview)
+        self.assertIn("sympy", preview)
+
+    def test_preview_missing_submission_returns_error(self):
+        event = {
+            "path": "/preview",
+            "body": {"configuration": {"params": {}}},
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+
+    def test_preview_bodyless_event_returns_error(self):
+        event = {"path": "/preview", "random": "metadata"}
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+        self.assertEqual(
+            response["error"]["message"],  # type: ignore
+            "No data supplied in request body.",
+        )
+
+    def test_preview_invalid_submission_type_returns_error(self):
+        event = {
+            "path": "/preview",
+            "body": {"submission": {"type": "INVALID", "content": {}}},
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+
+
+class TestMuEdPreviewExtraction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self.captured: dict = {}
+        captured = self.captured
+
+        def capturing_preview(response, params):
+            captured["response"] = response
+            captured["params"] = params
+            return {"preview": {"latex": "captured", "sympy": str(response)}}
+
+        commands.preview_function = capturing_preview
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.preview_function = None
+        return super().tearDown()
+
+    def test_math_submission_extracts_expression(self):
+        event = {
+            "path": "/preview",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "x+1")
+
+    def test_text_submission_extracts_text(self):
+        event = {
+            "path": "/preview",
+            "body": {
+                "submission": {"type": "TEXT", "content": {"text": "hello"}},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "hello")
+
+    def test_configuration_params_forwarded(self):
+        event = {
+            "path": "/preview",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "configuration": {"params": {"strict_syntax": False, "is_latex": True}},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["params"], {"strict_syntax": False, "is_latex": True})
+
+    def test_no_task_required(self):
+        event = {
+            "path": "/preview",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "sin(x)"}},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(self.captured["response"], "sin(x)")
+
+    def test_preview_result_propagated(self):
+        event = {
+            "path": "/preview",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["preSubmissionFeedback"]["latex"], "captured")  # type: ignore
+        self.assertEqual(response[0]["preSubmissionFeedback"]["sympy"], "x+1")  # type: ignore
 
 
 if __name__ == "__main__":

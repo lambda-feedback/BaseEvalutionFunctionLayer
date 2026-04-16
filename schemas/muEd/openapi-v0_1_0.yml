@@ -1300,8 +1300,6 @@ components:
       type: object
       description: |
         A single feedback item produced for the submission. It may include suggested actions, optional points, optional criterion linkage, and optional targeting into the submission.
-      required:
-        - feedbackId
       properties:
         feedbackId:
           type: string
