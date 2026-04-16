@@ -18,7 +18,14 @@ _openapi_spec = None
 # endpoint returns an inline array of Feedback items.
 _EVALUATE_RESPONSE_SCHEMA = {
     "type": "array",
-    "items": {"$ref": "#/components/schemas/Feedback"},
+    "items": {
+        "type": "object",
+        "required": ["feedbackId"],
+        "properties": {
+            "feedbackId": {"type": "string"},
+        },
+        "additionalProperties": True,
+    },
 }
 
 

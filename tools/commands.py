@@ -164,13 +164,19 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
     params = body.get("configuration", {}).get("params", {})
     result = _run_evaluation(response, answer, params)
 
+    is_correct = result.get("is_correct", 0)
     feedback_text = result.get("feedback", "")
-    return [
-        {
-            "feedbackId": "fb-1",
-            "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
-        }
-    ]
+
+    feedback_item: Dict = {
+        "feedbackId": "fb-1",
+        "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
+        "awardedPoints": int(is_correct),
+    }
+
+    if result.get("tags"):
+        feedback_item["tags"] = result["tags"]
+
+    return [feedback_item]
 
 
 def get_case_feedback(

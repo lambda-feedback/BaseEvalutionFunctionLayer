@@ -36,6 +36,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         self.assertIsInstance(response, list)
         self.assertEqual(len(response), 1)
         self.assertIn("feedbackId", response[0])
+        self.assertIn("awardedPoints", response[0])
 
     def test_evaluate_feedback_message(self):
         event = {
@@ -47,6 +48,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         self.assertIsInstance(response, list)
         self.assertEqual(response[0]["message"], "Well done.")
+        self.assertEqual(response[0]["awardedPoints"], True)
 
     def test_evaluate_with_task(self):
         event = {
@@ -146,9 +148,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
             },
         }
-        handler(event)
+        result = handler(event)
         self.assertEqual(self.captured["response"], "x+1")
         self.assertEqual(self.captured["answer"], "x+1")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
 
     def test_text_submission_extracts_text(self):
         event = {
@@ -158,9 +161,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"text": "hello"}},
             },
         }
-        handler(event)
+        result = handler(event)
         self.assertEqual(self.captured["response"], "hello")
         self.assertEqual(self.captured["answer"], "hello")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
 
     def test_configuration_params_forwarded(self):
         event = {
@@ -170,8 +174,9 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "configuration": {"params": {"strict_syntax": False}},
             },
         }
-        handler(event)
+        result = handler(event)
         self.assertEqual(self.captured["params"], {"strict_syntax": False})
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
 
     def test_no_task_answer_is_none(self):
         event = {
@@ -180,8 +185,9 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
             },
         }
-        handler(event)
+        result = handler(event)
         self.assertIsNone(self.captured["answer"])
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
 
 
 if __name__ == "__main__":
