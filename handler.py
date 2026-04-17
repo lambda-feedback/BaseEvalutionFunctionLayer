@@ -104,13 +104,25 @@ def handler(event: JsonType, _=None) -> HandlerResponse:
     if _ is None:
         _ = {}
 
-    path = event.get("path", "/")
+    # Normalise path: prefer rawPath (HTTP API v2) over path (REST API v1).
+    # API Gateway v1 includes the full resource prefix in `path`
+    # (e.g. /compareExpressions-staging/evaluate), so we match on suffix.
+    # API Gateway v2 uses `rawPath` at the top level; `path` may be absent.
+    raw_path = event.get("rawPath") or event.get("path", "/")
+    if raw_path.endswith("/evaluate/health"):
+        path = "/evaluate/health"
+    elif raw_path.endswith("/evaluate"):
+        path = "/evaluate"
+    elif raw_path.endswith("/preview"):
+        path = "/preview"
+    else:
+        path = raw_path
 
     try:
         if path == "/evaluate":
             return handle_muEd_command(event, "eval")
 
-        elif path == "/health":
+        elif path == "/evaluate/health":
             return handle_muEd_command(event, "healthcheck")
 
         elif path == "/preview":
