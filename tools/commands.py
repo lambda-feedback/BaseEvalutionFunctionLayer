@@ -55,6 +55,7 @@ class CaseResult(NamedTuple):
 
     is_correct: bool = False
     feedback: str = ""
+
     warning: Optional[CaseWarning] = None
 
 

@@ -136,6 +136,8 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
         elif command == "healthcheck":
             response = commands.healthcheck_muEd()
             validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
+            status_code = 503 if response.get("status") == "UNAVAILABLE" else 200
+            return wrap_muEd_response(response, event, status_code)
 
         else:
             error = {
