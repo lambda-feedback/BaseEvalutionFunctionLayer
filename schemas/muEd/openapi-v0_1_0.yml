@@ -18,12 +18,13 @@ paths:
       summary: Evaluate a submission and generate feedback
       operationId: evaluateSubmission
       description: |
-        Generates a list of feedback items for a given student submission. The request can optionally include the task context, user information, criteria to evaluate on, pre-submission feedback options, configuration, and a callback URL for asynchronous result delivery.
+        Generates a list of feedback items for a given student submission. The request can optionally include the task context, user information, criteria to evaluate on, pre-submission feedback options, and configuration.
       tags:
         - evaluate
       parameters:
         - $ref: '#/components/parameters/Authorization'
         - $ref: '#/components/parameters/X-Request-Id'
+        - $ref: '#/components/parameters/X-Api-Version'
       requestBody:
         required: true
         content:
@@ -60,19 +61,6 @@ paths:
                     llm:
                       model: gpt-5.2
                       temperature: 0.4
-              asyncCallbackExample:
-                summary: Asynchronous processing via callback URL
-                value:
-                  submission:
-                    submissionId: sub-async-001
-                    taskId: task-42
-                    type: TEXT
-                    format: plain
-                    content:
-                      text: Detailed essay answer that may require longer processing.
-                    submittedAt: '2025-12-16T09:45:00Z'
-                    version: 1
-                  callbackUrl: https://learning-platform.example.com/hooks/evaluate-result
               withTaskAndExtras:
                 summary: With task context, user, criteria and configuration
                 value:
@@ -340,6 +328,10 @@ paths:
               description: Request id for tracing this request across services.
               schema:
                 type: string
+            X-Api-Version:
+              description: The API version that was used to serve this response.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -370,12 +362,12 @@ paths:
                     - feedbackId: fb-2
                       title: Overall structure
                       message: The overall structure of your answer is clear and easy to follow.
-        '202':
-          $ref: '#/components/responses/202-Accepted'
         '400':
           $ref: '#/components/responses/400-BadRequest'
         '403':
           $ref: '#/components/responses/403-Forbidden'
+        '406':
+          $ref: '#/components/responses/406-VersionNotSupported'
         '500':
           $ref: '#/components/responses/500-InternalError'
         '501':
@@ -390,9 +382,19 @@ paths:
         - evaluate
       parameters:
         - $ref: '#/components/parameters/X-Request-Id'
+        - $ref: '#/components/parameters/X-Api-Version'
       responses:
         '200':
           description: Evaluate service is reachable and reporting capabilities.
+          headers:
+            X-Request-Id:
+              description: Request id for tracing this request across services.
+              schema:
+                type: string
+            X-Api-Version:
+              description: The API version that was used to serve this response.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -427,6 +429,10 @@ paths:
                       supportedLanguages:
                         - en
                         - de
+                      supportedVersions:
+                        - 0.1.0
+        '406':
+          $ref: '#/components/responses/406-VersionNotSupported'
         '501':
           description: The server does not implement the health endpoint for evaluate.
           $ref: '#/components/responses/501-NotImplemented'
@@ -443,6 +449,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Authorization'
         - $ref: '#/components/parameters/X-Request-Id'
+        - $ref: '#/components/parameters/X-Api-Version'
       requestBody:
         required: true
         content:
@@ -567,6 +574,10 @@ paths:
               description: Request id for tracing this request across services.
               schema:
                 type: string
+            X-Api-Version:
+              description: The API version that was used to serve this response.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -616,6 +627,8 @@ paths:
           $ref: '#/components/responses/400-BadRequest-2'
         '403':
           $ref: '#/components/responses/403-Forbidden'
+        '406':
+          $ref: '#/components/responses/406-VersionNotSupported'
         '500':
           $ref: '#/components/responses/500-InternalError-2'
         '501':
@@ -630,9 +643,19 @@ paths:
         - chat
       parameters:
         - $ref: '#/components/parameters/X-Request-Id'
+        - $ref: '#/components/parameters/X-Api-Version'
       responses:
         '200':
           description: Chat service is reachable and reporting capabilities.
+          headers:
+            X-Request-Id:
+              description: Request id for tracing this request across services.
+              schema:
+                type: string
+            X-Api-Version:
+              description: The API version that was used to serve this response.
+              schema:
+                type: string
           content:
             application/json:
               schema:
@@ -655,6 +678,10 @@ paths:
                       supportedModels:
                         - gpt-4o
                         - llama-3
+                      supportedVersions:
+                        - 0.1.0
+        '406':
+          $ref: '#/components/responses/406-VersionNotSupported'
         '501':
           description: The server does not implement the health endpoint for chat.
           $ref: '#/components/responses/501-NotImplemented-2'
@@ -675,6 +702,15 @@ components:
       description: Request id for tracing this request across services.
       schema:
         type: string
+    X-Api-Version:
+      in: header
+      name: X-Api-Version
+      description: |
+        The µEd API version the client is targeting (e.g. "0.1.0"). If omitted, the server will use the latest version it supports. If the requested version cannot be served, the server returns 406 Version Not Supported.
+      required: false
+      schema:
+        type: string
+        example: 0.1.0
   schemas:
     Task:
       type: object
@@ -759,10 +795,6 @@ components:
           additionalProperties: true
           description: |
             Logical representation of the submission content. The expected structure depends on the artefact type: - TEXT: { text: string } or { markdown: string } - CODE: { code: string } or { files: [{ path: string, content: string }], entryPoint?: string } - MATH: { expression: string } - MODEL: { model: string | object, notation?: string }
-        supplementaryContent:
-          type: object
-          additionalProperties: true
-          description: Optional additional content for the learner's submission. This could include workings for math tasks, or raw source code for compiled binaries.
         submittedAt:
           type:
             - string
@@ -1203,7 +1235,7 @@ components:
     EvaluateRequest:
       type: object
       description: |
-        Input for task evaluate service. The submission is mandatory; task, user, criteria, pre-submission feedback options, and configuration, and callback URL are optional.
+        Input for task evaluate service. The submission is mandatory; task, user, criteria, pre-submission feedback options, and configuration are optional.
       required:
         - submission
       properties:
@@ -1239,13 +1271,6 @@ components:
             - 'null'
           allOf:
             - $ref: '#/components/schemas/PreSubmissionFeedback'
-        callbackUrl:
-          type:
-            - string
-            - 'null'
-          format: uri
-          description: |
-            Optional HTTPS callback URL for asynchronous processing. If provided, the service may return 202 Accepted immediately and deliver feedback results to this URL once processing is complete.
         configuration:
           description: |
             Optional key-value configuration dictionary for provider-specific or experimental parameters. Not standardized.
@@ -1339,26 +1364,6 @@ components:
           description: Optional target reference inside the submission.
           allOf:
             - $ref: '#/components/schemas/FeedbackTarget'
-    EvaluateAcceptedResponse:
-      type: object
-      description: Acknowledgement that evaluation was accepted for asynchronous processing.
-      required:
-        - status
-        - requestId
-      properties:
-        status:
-          type: string
-          enum:
-            - ACCEPTED
-          description: Indicates that the request has been accepted for asynchronous processing.
-        requestId:
-          type: string
-          description: Identifier to correlate this accepted request with callback delivery.
-        message:
-          type:
-            - string
-            - 'null'
-          description: Optional human-readable message about asynchronous processing.
     ErrorResponse:
       type: object
       description: Standard error response returned by µEd API services.
@@ -1503,6 +1508,14 @@ components:
             - array
             - 'null'
           description: Optional list of supported language codes (e.g., 'en', 'de').
+          items:
+            type: string
+        supportedAPIVersions:
+          type:
+            - array
+            - 'null'
+          description: |
+            Optional list of µEd API versions supported by this service implementation (e.g., ["0.1.0"]). Clients can use this to select a compatible X-Api-Version.
           items:
             type: string
     EvaluateHealthResponse:
@@ -1658,6 +1671,14 @@ components:
           description: Optional list of supported models.
           items:
             type: string
+        supportedAPIVersions:
+          type:
+            - array
+            - 'null'
+          description: |
+            Optional list of µEd API versions supported by this service implementation (e.g., ["0.1.0"]). Clients can use this to select a compatible X-Api-Version.
+          items:
+            type: string
     ChatHealthResponse:
       type: object
       description: Health status and capabilities of the chat service.
@@ -1680,29 +1701,15 @@ components:
         capabilities:
           $ref: '#/components/schemas/ChatCapabilities'
   responses:
-    202-Accepted:
-      description: Request accepted for asynchronous evaluation processing.
-      headers:
-        X-Request-Id:
-          description: Request id for tracing this request across services.
-          schema:
-            type: string
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/EvaluateAcceptedResponse'
-          examples:
-            asyncAccepted:
-              summary: Example accepted async request
-              value:
-                status: ACCEPTED
-                requestId: req-7c193f38
-                message: Evaluation queued. Results will be sent to callbackUrl.
     400-BadRequest:
       description: Invalid request (e.g. missing content or invalid schema).
       headers:
         X-Request-Id:
           description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
           schema:
             type: string
       content:
@@ -1726,6 +1733,10 @@ components:
           description: Request id for tracing this request across services.
           schema:
             type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
+          schema:
+            type: string
       content:
         application/json:
           schema:
@@ -1741,11 +1752,43 @@ components:
                 details:
                   resource: submission
                   required_permission: write
+    406-VersionNotSupported:
+      description: |
+        The requested API version (supplied via X-Api-Version) is not supported by this service.
+      headers:
+        X-Request-Id:
+          description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            versionNotSupported:
+              summary: Example version not supported error
+              value:
+                title: API version not supported
+                message: 'The requested API version ''0.0'' is not supported. Supported versions are: [''0.1.0''].'
+                code: VERSION_NOT_SUPPORTED
+                trace: null
+                details:
+                  requestedVersion: '0.0'
+                  supportedVersions:
+                    - 0.1.0
     500-InternalError:
       description: Internal server error.
       headers:
         X-Request-Id:
           description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
           schema:
             type: string
       content:
@@ -1770,6 +1813,10 @@ components:
           description: Request id for tracing this request across services.
           schema:
             type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
+          schema:
+            type: string
       content:
         application/json:
           schema:
@@ -1788,6 +1835,10 @@ components:
       headers:
         X-Request-Id:
           description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
           schema:
             type: string
       content:
@@ -1826,6 +1877,10 @@ components:
           description: Request id for tracing this request across services.
           schema:
             type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
+          schema:
+            type: string
       content:
         application/json:
           schema:
@@ -1845,6 +1900,10 @@ components:
       headers:
         X-Request-Id:
           description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
           schema:
             type: string
       content:
@@ -1869,6 +1928,10 @@ components:
           description: Request id for tracing this request across services.
           schema:
             type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
+          schema:
+            type: string
       content:
         application/json:
           schema:
@@ -1887,6 +1950,10 @@ components:
       headers:
         X-Request-Id:
           description: Request id for tracing this request across services.
+          schema:
+            type: string
+        X-Api-Version:
+          description: The API version that was used to serve this response.
           schema:
             type: string
       content:
