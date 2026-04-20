@@ -102,8 +102,10 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertEqual(response.get("command"), "healthcheck")
-        self.assertIn("result", response)
+        self.assertIn(response.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+        capabilities = response.get("capabilities", {})
+        self.assertIn("supportedAPIVersions", capabilities)
+        self.assertIn("0.1.0", capabilities["supportedAPIVersions"])
 
     def test_unknown_path_falls_back_to_legacy(self):
         event = {
