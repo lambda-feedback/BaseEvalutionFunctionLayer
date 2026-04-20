@@ -18,12 +18,13 @@ evaluation_function: Optional[
 class TestMuEdHandlerFunction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_eval = commands.evaluation_function
         commands.evaluation_function = evaluation_function
         return super().setUp()
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.evaluation_function = None
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_evaluate_returns_feedback_list(self):
@@ -169,6 +170,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 class TestMuEdEvaluateExtraction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_eval = commands.evaluation_function
         self.captured: dict = {}
         captured = self.captured
 
@@ -183,7 +185,7 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.evaluation_function = None
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_math_submission_extracts_expression(self):
@@ -239,6 +241,8 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
 class TestMuEdPreviewHandlerFunction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_preview = commands.preview_function
+        self._orig_eval = commands.evaluation_function
         commands.preview_function = lambda response, params: {
             "preview": {"latex": f"\\text{{{response}}}", "sympy": response}
         }
@@ -249,8 +253,8 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.preview_function = None
-        commands.evaluation_function = None
+        commands.preview_function = self._orig_preview
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_preview_returns_feedback_list(self):
@@ -358,14 +362,16 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertIn("awardedPoints", response[0])  # type: ignore
-        self.assertNotIn("preSubmissionFeedback", response[0])  # type: ignore
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertIn("awardedPoints", body[0])
+        self.assertNotIn("preSubmissionFeedback", body[0])
 
 
 class TestMuEdPreviewExtraction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_preview = commands.preview_function
         self.captured: dict = {}
         captured = self.captured
 
@@ -379,7 +385,7 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.preview_function = None
+        commands.preview_function = self._orig_preview
         return super().tearDown()
 
     def test_math_submission_extracts_expression(self):
