@@ -81,7 +81,8 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
         validate.body(response, MuEdResBodyValidators.EVALUATION)
 
     elif command == "healthcheck":
-        response = commands.healthcheck()
+        response = commands.healthcheck_muEd()
+        validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
 
     else:
         response = Response(

@@ -346,6 +346,15 @@ class TestCommandsModule(unittest.TestCase):
 
         self.assertIn("tests_passed", result)
 
+    def test_healthcheck_muEd(self):
+        response = commands.healthcheck_muEd()
+
+        self.assertIn(response["status"], ("OK", "DEGRADED", "UNAVAILABLE"))
+        capabilities = response["capabilities"]
+        self.assertIn("supportedAPIVersions", capabilities)
+        self.assertIsInstance(capabilities["supportedAPIVersions"], list)
+        self.assertIn("0.1.0", capabilities["supportedAPIVersions"])
+
 
 if __name__ == "__main__":
     unittest.main()
