@@ -2,6 +2,8 @@ from evaluation_function_utils.errors import EvaluationException
 
 from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
+from typing import Optional
+
 from .tools.utils import ErrorResponse, HandlerResponse, JsonType, Response
 from .tools.validate import (
     LegacyReqBodyValidators,
@@ -58,6 +60,33 @@ def handle_legacy_command(event: JsonType, command: str) -> HandlerResponse:
     return response
 
 
+def check_muEd_version(event: JsonType) -> Optional[HandlerResponse]:
+    """Check the X-Api-Version header against supported muEd versions.
+
+    Args:
+        event (JsonType): The AWS Lambda event received by the handler.
+
+    Returns:
+        Optional[HandlerResponse]: A version-not-supported error response if
+        the requested version is unsupported, otherwise None.
+    """
+    version = (event.get("headers") or {}).get("X-Api-Version")
+    if version and version not in commands.SUPPORTED_MUED_VERSIONS:
+        return {
+            "title": "API version not supported",
+            "message": (
+                f"The requested API version '{version}' is not supported. "
+                f"Supported versions are: {commands.SUPPORTED_MUED_VERSIONS}."
+            ),
+            "code": "VERSION_NOT_SUPPORTED",
+            "details": {
+                "requestedVersion": version,
+                "supportedVersions": commands.SUPPORTED_MUED_VERSIONS,
+            },
+        }
+    return None
+
+
 def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     """Switch case for handling different command options using muEd schemas.
 
@@ -68,6 +97,10 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     Returns:
         HandlerResponse: The response object returned by the handler.
     """
+    version_error = check_muEd_version(event)
+    if version_error:
+        return version_error
+
     if command == "eval":
         body = parse.body(event)
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
