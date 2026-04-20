@@ -1,10 +1,11 @@
+import json
 from evaluation_function_utils.errors import EvaluationException
 
 from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
-from typing import Optional
+from typing import Any, Optional
 
-from .tools.utils import ErrorResponse, HandlerResponse, JsonType, Response
+from .tools.utils import DocsResponse, ErrorResponse, HandlerResponse, JsonType, Response
 from .tools.validate import (
     LegacyReqBodyValidators,
     LegacyResBodyValidators,
@@ -60,6 +61,30 @@ def handle_legacy_command(event: JsonType, command: str) -> HandlerResponse:
     return response
 
 
+def wrap_muEd_response(body: Any, event: JsonType, status_code: int = 200) -> DocsResponse:
+    """Wrap a muEd response body in Lambda proxy format with X-Api-Version header.
+
+    Args:
+        body: The response body to serialise.
+        event (JsonType): The incoming event (used to resolve the served version).
+        status_code (int): The HTTP status code. Defaults to 200.
+
+    Returns:
+        DocsResponse: Proxy-format response with X-Api-Version header set.
+    """
+    requested = (event.get("headers") or {}).get("X-Api-Version")
+    if requested and requested in commands.SUPPORTED_MUED_VERSIONS:
+        version = requested
+    else:
+        version = commands.SUPPORTED_MUED_VERSIONS[-1]
+    return DocsResponse(
+        statusCode=status_code,
+        headers={"X-Api-Version": version},
+        body=json.dumps(body),
+        isBase64Encoded=False,
+    )
+
+
 def check_muEd_version(event: JsonType) -> Optional[HandlerResponse]:
     """Check the X-Api-Version header against supported muEd versions.
 
@@ -99,7 +124,7 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     """
     version_error = check_muEd_version(event)
     if version_error:
-        return version_error
+        return wrap_muEd_response(version_error, event, 406)
 
     if command == "eval":
         body = parse.body(event)
@@ -122,7 +147,7 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
             error=ErrorResponse(message=f"Unknown command '{command}'.")
         )
 
-    return response
+    return wrap_muEd_response(response, event)
 
 
 def handler(event: JsonType, _=None) -> HandlerResponse:

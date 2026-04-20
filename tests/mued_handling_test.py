@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from pathlib import Path
@@ -33,9 +34,11 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(len(response), 1)
-        self.assertIn("awardedPoints", response[0])
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertEqual(len(body), 1)
+        self.assertIn("awardedPoints", body[0])
 
     def test_evaluate_feedback_message(self):
         event = {
@@ -45,9 +48,9 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(response[0]["message"], "Well done.")
-        self.assertEqual(response[0]["awardedPoints"], True)
+        body = json.loads(response["body"])
+        self.assertEqual(body[0]["message"], "Well done.")
+        self.assertEqual(body[0]["awardedPoints"], True)
 
     def test_evaluate_with_task(self):
         event = {
@@ -63,7 +66,8 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
 
     def test_evaluate_missing_submission_returns_error(self):
         event = {
@@ -102,8 +106,11 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn(response.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
-        capabilities = response.get("capabilities", {})
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertIn(body.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+        capabilities = body.get("capabilities", {})
         self.assertIn("supportedAPIVersions", capabilities)
         self.assertIn("0.1.0", capabilities["supportedAPIVersions"])
 
@@ -115,7 +122,10 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn(response.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertIn(body.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
 
     def test_unsupported_version_header_returns_error(self):
         event = {
@@ -126,17 +136,22 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertEqual(response.get("code"), "VERSION_NOT_SUPPORTED")
-        self.assertIn("details", response)
-        self.assertEqual(response["details"]["requestedVersion"], "99.0.0")
-        self.assertIn("0.1.0", response["details"]["supportedVersions"])
+        self.assertEqual(response["statusCode"], 406)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertEqual(body.get("code"), "VERSION_NOT_SUPPORTED")
+        self.assertIn("details", body)
+        self.assertEqual(body["details"]["requestedVersion"], "99.0.0")
+        self.assertIn("0.1.0", body["details"]["supportedVersions"])
 
     def test_absent_version_header_proceeds_normally(self):
         event = {"path": "/evaluate/health"}
 
         response = handler(event)
 
-        self.assertNotIn("code", response)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertNotIn("code", body)
 
     def test_unknown_path_falls_back_to_legacy(self):
         event = {
@@ -179,10 +194,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["response"], "x+1")
         self.assertEqual(self.captured["answer"], "x+1")
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_text_submission_extracts_text(self):
         event = {
@@ -192,10 +207,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"text": "hello"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["response"], "hello")
         self.assertEqual(self.captured["answer"], "hello")
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_configuration_params_forwarded(self):
         event = {
@@ -205,9 +220,9 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "configuration": {"params": {"strict_syntax": False}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["params"], {"strict_syntax": False})
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_no_task_answer_is_none(self):
         event = {
@@ -216,9 +231,9 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertIsNone(self.captured["answer"])
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
 
 class TestMuEdPreviewHandlerFunction(unittest.TestCase):
@@ -242,8 +257,10 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(len(response), 1)
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertEqual(len(body), 1)
 
     def test_preview_feedback_id_is_preSubmissionFeedback(self):
         event = {
@@ -251,9 +268,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertNotIn("feedbackId", response[0])  # type: ignore
+        self.assertNotIn("feedbackId", body[0])
 
     def test_preview_contains_preSubmissionFeedback_field(self):
         event = {
@@ -261,9 +278,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertIn("preSubmissionFeedback", response[0])  # type: ignore
+        self.assertIn("preSubmissionFeedback", body[0])
 
     def test_preview_preSubmissionFeedback_has_latex_and_sympy(self):
         event = {
@@ -271,9 +288,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        preview = response[0]["preSubmissionFeedback"]  # type: ignore
+        preview = body[0]["preSubmissionFeedback"]
         self.assertIn("latex", preview)
         self.assertIn("sympy", preview)
 
@@ -375,7 +392,8 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
         self.assertEqual(self.captured["response"], "sin(x)")
 
     def test_preview_result_propagated(self):
@@ -386,10 +404,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
             },
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertEqual(response[0]["preSubmissionFeedback"]["latex"], "captured")  # type: ignore
-        self.assertEqual(response[0]["preSubmissionFeedback"]["sympy"], "x+1")  # type: ignore
+        self.assertEqual(body[0]["preSubmissionFeedback"]["latex"], "captured")
+        self.assertEqual(body[0]["preSubmissionFeedback"]["sympy"], "x+1")
 
 
 if __name__ == "__main__":
