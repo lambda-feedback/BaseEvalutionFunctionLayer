@@ -107,6 +107,37 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         self.assertIn("supportedAPIVersions", capabilities)
         self.assertIn("0.1.0", capabilities["supportedAPIVersions"])
 
+    def test_supported_version_header_is_accepted(self):
+        event = {
+            "path": "/evaluate/health",
+            "headers": {"X-Api-Version": "0.1.0"},
+        }
+
+        response = handler(event)
+
+        self.assertIn(response.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+
+    def test_unsupported_version_header_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "headers": {"X-Api-Version": "99.0.0"},
+            "body": {"submission": {"type": "TEXT", "content": {}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response.get("code"), "VERSION_NOT_SUPPORTED")
+        self.assertIn("details", response)
+        self.assertEqual(response["details"]["requestedVersion"], "99.0.0")
+        self.assertIn("0.1.0", response["details"]["supportedVersions"])
+
+    def test_absent_version_header_proceeds_normally(self):
+        event = {"path": "/evaluate/health"}
+
+        response = handler(event)
+
+        self.assertNotIn("code", response)
+
     def test_unknown_path_falls_back_to_legacy(self):
         event = {
             "path": "/unknown",
