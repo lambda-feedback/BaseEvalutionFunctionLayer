@@ -98,7 +98,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         )
 
     def test_healthcheck(self):
-        event = {"path": "/health"}
+        event = {"path": "/evaluate/health"}
 
         response = handler(event)
 
