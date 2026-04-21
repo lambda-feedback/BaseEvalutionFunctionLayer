@@ -138,27 +138,25 @@ def evaluate(body: JsonType) -> Response:
     return Response(command="eval", result=result)
 
 
-def evaluate_muEd(body: JsonType) -> List[Dict]:
-    """Run the evaluation command for the evaluation function (muEd format).
-
-    Args:
-        body (JsonType): The validated muEd request body.
-
-    Returns:
-        List[Dict]: A list of Feedback items.
-    """
+def _extract_muEd_submission(body: JsonType):
+    """Extract response, params, and content_key from a muEd request body."""
     submission = body["submission"]
     sub_type = submission.get("type", "MATH")
     _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
     content_key = _type_key.get(sub_type, "value")
-
     response = submission.get("content", {}).get(content_key)
     params = body.get("configuration", {}).get("params", {})
+    return response, params, content_key
 
-    pre_sub = body.get("preSubmissionFeedback") or {}
-    if pre_sub.get("enabled"):
-        preview_result = preview_function(response, params)
-        return [{"preSubmissionFeedback": preview_result.get("preview", {})}]
+
+def _run_muEd_preview(body: JsonType) -> List[Dict]:
+    response, params, _ = _extract_muEd_submission(body)
+    preview_result = preview_function(response, params)
+    return [{"preSubmissionFeedback": preview_result.get("preview", {})}]
+
+
+def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
+    response, params, content_key = _extract_muEd_submission(body)
 
     task = body.get("task")
     if task:
@@ -181,6 +179,21 @@ def evaluate_muEd(body: JsonType) -> List[Dict]:
         feedback_item["tags"] = result["tags"]
 
     return [feedback_item]
+
+
+def evaluate_muEd(body: JsonType) -> List[Dict]:
+    """Run the evaluation command for the evaluation function (muEd format).
+
+    Args:
+        body (JsonType): The validated muEd request body.
+
+    Returns:
+        List[Dict]: A list of Feedback items.
+    """
+    pre_sub = body.get("preSubmissionFeedback") or {}
+    if pre_sub.get("enabled"):
+        return _run_muEd_preview(body)
+    return _run_muEd_evaluation(body)
 
 
 def get_case_feedback(
