@@ -74,12 +74,6 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
         response = commands.evaluate_muEd(body)
         validate.body(response, MuEdResBodyValidators.EVALUATION)
 
-    elif command == "preview":
-        body = parse.body(event)
-        validate.body(body, MuEdReqBodyValidators.EVALUATION)
-        response = commands.preview_muEd(body)
-        validate.body(response, MuEdResBodyValidators.EVALUATION)
-
     elif command == "healthcheck":
         response = commands.healthcheck()
 
@@ -113,8 +107,6 @@ def handler(event: JsonType, _=None) -> HandlerResponse:
         path = "/evaluate/health"
     elif raw_path.endswith("/evaluate"):
         path = "/evaluate"
-    elif raw_path.endswith("/preview"):
-        path = "/preview"
     else:
         path = raw_path
 
@@ -124,9 +116,6 @@ def handler(event: JsonType, _=None) -> HandlerResponse:
 
         elif path == "/evaluate/health":
             return handle_muEd_command(event, "healthcheck")
-
-        elif path == "/preview":
-            return handle_muEd_command(event, "preview")
 
         else:
             headers = event.get("headers", dict())

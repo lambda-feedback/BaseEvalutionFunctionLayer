@@ -194,17 +194,24 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
         commands.preview_function = lambda response, params: {
             "preview": {"latex": f"\\text{{{response}}}", "sympy": response}
         }
+        commands.evaluation_function = lambda response, answer, params: {
+            "is_correct": True, "feedback": "Well done."
+        }
         return super().setUp()
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
         commands.preview_function = None
+        commands.evaluation_function = None
         return super().tearDown()
 
     def test_preview_returns_feedback_list(self):
         event = {
-            "path": "/preview",
-            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
@@ -214,8 +221,11 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def test_preview_feedback_id_is_preSubmissionFeedback(self):
         event = {
-            "path": "/preview",
-            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
@@ -224,8 +234,11 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def test_preview_contains_preSubmissionFeedback_field(self):
         event = {
-            "path": "/preview",
-            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
@@ -234,8 +247,11 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def test_preview_preSubmissionFeedback_has_latex_and_sympy(self):
         event = {
-            "path": "/preview",
-            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
@@ -246,8 +262,11 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def test_preview_missing_submission_returns_error(self):
         event = {
-            "path": "/preview",
-            "body": {"configuration": {"params": {}}},
+            "path": "/evaluate",
+            "body": {
+                "configuration": {"params": {}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
@@ -255,7 +274,7 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
         self.assertIn("error", response)
 
     def test_preview_bodyless_event_returns_error(self):
-        event = {"path": "/preview", "random": "metadata"}
+        event = {"path": "/evaluate", "random": "metadata"}
 
         response = handler(event)
 
@@ -267,13 +286,31 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def test_preview_invalid_submission_type_returns_error(self):
         event = {
-            "path": "/preview",
-            "body": {"submission": {"type": "INVALID", "content": {}}},
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "INVALID", "content": {}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
         }
 
         response = handler(event)
 
         self.assertIn("error", response)
+
+    def test_presubmission_disabled_runs_normal_evaluation(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": False},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertIn("awardedPoints", response[0])  # type: ignore
+        self.assertNotIn("preSubmissionFeedback", response[0])  # type: ignore
 
 
 class TestMuEdPreviewExtraction(unittest.TestCase):
@@ -297,9 +334,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def test_math_submission_extracts_expression(self):
         event = {
-            "path": "/preview",
+            "path": "/evaluate",
             "body": {
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
             },
         }
 
@@ -309,9 +347,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def test_text_submission_extracts_text(self):
         event = {
-            "path": "/preview",
+            "path": "/evaluate",
             "body": {
                 "submission": {"type": "TEXT", "content": {"text": "hello"}},
+                "preSubmissionFeedback": {"enabled": True},
             },
         }
 
@@ -321,10 +360,11 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def test_configuration_params_forwarded(self):
         event = {
-            "path": "/preview",
+            "path": "/evaluate",
             "body": {
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
                 "configuration": {"params": {"strict_syntax": False, "is_latex": True}},
+                "preSubmissionFeedback": {"enabled": True},
             },
         }
 
@@ -334,9 +374,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def test_no_task_required(self):
         event = {
-            "path": "/preview",
+            "path": "/evaluate",
             "body": {
                 "submission": {"type": "MATH", "content": {"expression": "sin(x)"}},
+                "preSubmissionFeedback": {"enabled": True},
             },
         }
 
@@ -347,9 +388,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def test_preview_result_propagated(self):
         event = {
-            "path": "/preview",
+            "path": "/evaluate",
             "body": {
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
             },
         }
 
