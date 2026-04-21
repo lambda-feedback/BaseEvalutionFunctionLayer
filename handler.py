@@ -122,26 +122,49 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     Returns:
         HandlerResponse: The response object returned by the handler.
     """
-    version_error = check_muEd_version(event)
-    if version_error:
-        return wrap_muEd_response(version_error, event, 406)
+    try:
+        version_error = check_muEd_version(event)
+        if version_error:
+            return wrap_muEd_response(version_error, event, 406)
 
-    if command == "eval":
-        body = parse.body(event)
-        validate.body(body, MuEdReqBodyValidators.EVALUATION)
-        response = commands.evaluate_muEd(body)
-        validate.body(response, MuEdResBodyValidators.EVALUATION)
+        if command == "eval":
+            body = parse.body(event)
+            validate.body(body, MuEdReqBodyValidators.EVALUATION)
+            response = commands.evaluate_muEd(body)
+            validate.body(response, MuEdResBodyValidators.EVALUATION)
 
-    elif command == "healthcheck":
-        response = commands.healthcheck_muEd()
-        validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
+        elif command == "healthcheck":
+            response = commands.healthcheck_muEd()
+            validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
 
-    else:
-        response = Response(
-            error=ErrorResponse(message=f"Unknown command '{command}'.")
-        )
+        else:
+            error = {
+                "title": "Not implemented",
+                "message": f"Unknown command '{command}'.",
+                "code": "NOT_IMPLEMENTED",
+            }
+            return wrap_muEd_response(error, event, 501)
 
-    return wrap_muEd_response(response, event)
+        return wrap_muEd_response(response, event)
+
+    except (ParseError, ValidationError) as e:
+        error = {
+            "title": "Bad request",
+            "message": e.message,
+            "code": "VALIDATION_ERROR",
+            "details": {"error": str(e.error_thrown)} if e.error_thrown else None,
+        }
+        return wrap_muEd_response(error, event, 400)
+
+    except EvaluationException as e:
+        detail = str(e) if str(e) else repr(e)
+        error = {"title": "Internal server error", "message": detail, "code": "INTERNAL_ERROR"}
+        return wrap_muEd_response(error, event, 500)
+
+    except Exception as e:
+        detail = str(e) if str(e) else repr(e)
+        error = {"title": "Internal server error", "message": detail, "code": "INTERNAL_ERROR"}
+        return wrap_muEd_response(error, event, 500)
 
 
 def handler(event: JsonType, _=None) -> HandlerResponse:
