@@ -401,5 +401,158 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
         self.assertEqual(response[0]["preSubmissionFeedback"]["sympy"], "x+1")  # type: ignore
 
 
+class TestMuEdMatchedCase(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        commands.evaluation_function = lambda response, answer, params: {
+            "is_correct": response == answer,
+            "feedback": "Default feedback.",
+        }
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_matched_case_is_none_when_no_cases(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_is_none_when_no_case_matches(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+3", "feedback": "Try again."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_index_when_first_case_matches(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "100+100.1(j)"}},
+                "task": {
+                    "title": "Evaluation Task",
+                    "referenceSolution": {"expression": "100+100.1j"},
+                },
+                "configuration": {
+                    "params": {
+                        "atol": 0,
+                        "rtol": 0,
+                        "strict_syntax": False,
+                        "physical_quantity": False,
+                        "elementary_functions": True,
+                        "cases": [
+                            {
+                                "answer": "100+100.1(j)",
+                                "params": {
+                                    "atol": 0,
+                                    "rtol": 0,
+                                    "strict_syntax": False,
+                                    "physical_quantity": False,
+                                    "elementary_functions": True,
+                                },
+                                "feedback": "Hello",
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 0)  # type: ignore
+        self.assertEqual(response[0]["message"], "Hello")  # type: ignore
+
+    def test_matched_case_index_second_case(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+3", "feedback": "Not case 0."},
+                            {"answer": "x+1", "feedback": "This is case 1."},
+                            {"answer": "x+4", "feedback": "Not case 2."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 1)  # type: ignore
+        self.assertEqual(response[0]["message"], "This is case 1.")  # type: ignore
+
+    def test_matched_case_is_none_when_correct(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+1", "feedback": "Matched but not checked."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["awardedPoints"], 1)  # type: ignore
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_with_mark_override(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+1", "feedback": "Close enough!", "mark": 1},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 0)  # type: ignore
+        self.assertEqual(response[0]["awardedPoints"], 1)  # type: ignore
+        self.assertEqual(response[0]["message"], "Close enough!")  # type: ignore
+
+
 if __name__ == "__main__":
     unittest.main()
