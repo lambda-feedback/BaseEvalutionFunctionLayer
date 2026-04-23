@@ -680,8 +680,6 @@ components:
       type: object
       description: |
         Task context including the content, learning objectives, optional reference solution, optional context information, and optional metadata.
-      required:
-        - title
       properties:
         taskId:
           type: string
