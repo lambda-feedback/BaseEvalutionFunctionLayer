@@ -117,6 +117,34 @@ class TestMuEdHandlerFunction(unittest.TestCase):
         self.assertEqual(response.get("command"), "eval")
         self.assertIn("result", response)
 
+    def test_evaluate_response_latex_and_simplified_are_none_when_not_returned(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["responseLatex"])  # type: ignore
+        self.assertIsNone(response[0]["responseSimplified"])  # type: ignore
+
+    def test_evaluate_response_latex_and_simplified_populated_when_returned(self):
+        commands.evaluation_function = lambda r, a, p: {
+            "is_correct": True,
+            "feedback": "Well done.",
+            "response_latex": r"x + 1",
+            "response_simplified": "x + 1",
+        }
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["responseLatex"], r"x + 1")  # type: ignore
+        self.assertEqual(response[0]["responseSimplified"], "x + 1")  # type: ignore
+
 
 class TestMuEdEvaluateExtraction(unittest.TestCase):
     def setUp(self) -> None:

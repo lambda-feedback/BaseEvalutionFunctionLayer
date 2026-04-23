@@ -174,6 +174,8 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
         "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
         "awardedPoints": int(is_correct),
         "matchedCase": result.get("matched_case"),
+        "responseLatex": result.get("response_latex"),
+        "responseSimplified": result.get("response_simplified"),
     }
 
     if result.get("tags"):
