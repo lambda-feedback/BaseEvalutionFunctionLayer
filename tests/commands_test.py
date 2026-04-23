@@ -42,6 +42,25 @@ class TestCommandsModule(unittest.TestCase):
         self.assertIn("result", response)
         self.assertIn("is_correct", response["result"])  # type: ignore
 
+    def test_eval_response_latex_and_simplified_are_none_when_not_returned(self):
+        body = {"response": "hello", "answer": "world", "params": {}}
+        response = commands.evaluate(body)
+
+        self.assertNotIn("response_latex", response["result"])  # type: ignore
+        self.assertNotIn("response_simplified", response["result"])  # type: ignore
+
+    def test_eval_response_latex_and_simplified_passed_through_when_returned(self):
+        commands.evaluation_function = lambda r, a, p: {
+            "is_correct": True,
+            "response_latex": r"x + 1",
+            "response_simplified": "x + 1",
+        }
+        body = {"response": "x+1", "answer": "x+1", "params": {}}
+        response = commands.evaluate(body)
+
+        self.assertEqual(response["result"]["response_latex"], r"x + 1")  # type: ignore
+        self.assertEqual(response["result"]["response_simplified"], "x + 1")  # type: ignore
+
     def test_invalid_eval_args_raises_parse_error(self):
         event = {"headers": {"command": "eval"}, "other": "params"}
         response = handler(event)
