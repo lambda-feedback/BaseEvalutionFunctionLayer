@@ -118,7 +118,7 @@ def _run_evaluation(response: Any, answer: Any, params: Dict) -> Dict:
 
             # Override is_correct provided by the
             # original block by the case 'mark'
-            if "mark" in match:
+            if "mark" in match and match["mark"] is not None:
                 result["is_correct"] = bool(int(match["mark"]))
 
     return result
