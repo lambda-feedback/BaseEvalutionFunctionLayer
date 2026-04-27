@@ -192,6 +192,19 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
         self.assertEqual(self.captured["answer"], "hello")
         self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
 
+    def test_other_submission_extracts_content(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "OTHER", "content": {"content": "some text"}},
+                "task": {"title": "T", "referenceSolution": {"content": "some text"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "some text")
+        self.assertEqual(self.captured["answer"], "some text")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
     def test_configuration_params_forwarded(self):
         event = {
             "path": "/evaluate",
@@ -385,6 +398,19 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
         handler(event)
 
         self.assertEqual(self.captured["response"], "hello")
+
+    def test_other_submission_extracts_content(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "OTHER", "content": {"content": "some text"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "some text")
 
     def test_configuration_params_forwarded(self):
         event = {

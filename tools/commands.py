@@ -141,8 +141,8 @@ def evaluate(body: JsonType) -> Response:
 def _extract_muEd_submission(body: JsonType):
     """Extract response, params, and content_key from a muEd request body."""
     submission = body["submission"]
-    sub_type = submission.get("type", "MATH")
-    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
+    sub_type = submission.get("type", "OTHER")
+    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model", "OTHER": "content"}
     content_key = _type_key.get(sub_type, "value")
     response = submission.get("content", {}).get(content_key)
     params = body.get("configuration", {}).get("params", {})
@@ -167,7 +167,7 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
 
     result = _run_evaluation(response, answer, params)
 
-    is_correct = result.get("is_correct", 0)
+    is_correct = result.get("is_correct") or 0
     feedback_text = result.get("feedback", "")
 
     feedback_item: Dict = {
