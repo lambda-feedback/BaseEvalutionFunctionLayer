@@ -144,7 +144,15 @@ def _extract_muEd_submission(body: JsonType):
     sub_type = submission.get("type", "OTHER")
     _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
     content_key = _type_key.get(sub_type, "value")
-    response = submission.get("content", {}).get(content_key)
+    content = submission.get("content", {})
+    response = content.get(content_key)
+    if response is None and content_key != "value":
+        response = content.get("value")
+    if response is None:
+        raise EvaluationException(
+            f"Could not extract response: expected '{content_key}' (or 'value') "
+            f"in submission content."
+        )
     params = body.get("configuration", {}).get("params", {})
     return response, params, content_key
 
@@ -162,6 +170,8 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
     if task:
         ref = task.get("referenceSolution") or {}
         answer = ref.get(content_key)
+        if answer is None and content_key != "value":
+            answer = ref.get("value")
     else:
         answer = None
 

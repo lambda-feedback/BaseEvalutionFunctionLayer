@@ -28,7 +28,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
     def test_evaluate_returns_feedback_list(self):
         event = {
             "path": "/evaluate",
-            "body": {"submission": {"type": "TEXT", "content": {}}},
+            "body": {"submission": {"type": "TEXT", "content": {"text": ""}}},
         }
 
         response = handler(event)
@@ -204,6 +204,29 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
         self.assertEqual(self.captured["response"], "some text")
         self.assertEqual(self.captured["answer"], "some text")
         self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+    def test_typed_submission_falls_back_to_value_key(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"value": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"value": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "x+1")
+        self.assertEqual(self.captured["answer"], "x+1")
+
+    def test_missing_content_key_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"unknown_key": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertIn("error", result)
+        self.assertIn("expression", result["error"]["message"])
 
     def test_configuration_params_forwarded(self):
         event = {
@@ -411,6 +434,19 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
         handler(event)
 
         self.assertEqual(self.captured["response"], "some text")
+
+    def test_typed_submission_falls_back_to_value_key(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"value": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "x+1")
 
     def test_configuration_params_forwarded(self):
         event = {
