@@ -51,7 +51,7 @@ class TestMuEdRequestValidation(unittest.TestCase):
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
 
     def test_valid_other_submission_type(self):
-        body = {"submission": {"type": "OTHER", "content": {"content": "some text"}}}
+        body = {"submission": {"type": "OTHER", "content": {"value": "some text"}}}
         validate.body(body, MuEdReqBodyValidators.EVALUATION)
 
     def test_valid_request_with_task(self):

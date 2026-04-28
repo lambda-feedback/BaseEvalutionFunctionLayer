@@ -142,7 +142,7 @@ def _extract_muEd_submission(body: JsonType):
     """Extract response, params, and content_key from a muEd request body."""
     submission = body["submission"]
     sub_type = submission.get("type", "OTHER")
-    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model", "OTHER": "content"}
+    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
     content_key = _type_key.get(sub_type, "value")
     response = submission.get("content", {}).get(content_key)
     params = body.get("configuration", {}).get("params", {})
