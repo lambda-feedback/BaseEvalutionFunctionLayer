@@ -4,19 +4,60 @@ Base docker image for evaluation functions coded in python. This layer cannot fu
 
 This layer implements the behaviour common to all evaluation functions:
 
-- Request and response schema validation
+- Request and response schema validation (legacy JSON schemas and muEd OpenAPI spec)
 - Unit testing setup
-- Function commands:
-  - `eval`: calls the evaluation function in the user-defined `evaluation.py` file.
-  - `preview`: calls the preview function in the user-defined `preview.py` file.
-  - `healthcheck`: runs all unittests for schema testing as well as user-defined tests in `evaluation_tests.py`.
-  - `docs`: returns the `docs.md` user-defined file.
+- Dual API support: legacy command-based API and muEd path-based API
 
 _Note: user-defined files are those provided by the evaluation function code meant to extend this layer_
 
 ## Behaviour and Usage
 
-Commands as passed in 'command' header from each request. By default (if no header is present), the function will run the `eval` command.
+The handler inspects the incoming request path (`rawPath` / `path`) to decide which API to invoke:
+
+| Path | Handler |
+|------|---------|
+| `/evaluate` | muEd handler (OpenAPI-validated) |
+| `/evaluate/health` | muEd healthcheck |
+| anything else | Legacy handler (JSON-schema-validated) |
+
+### Legacy API
+
+Commands are passed in the `command` header of each request. By default (if no header is present), the function will run the `eval` command.
+
+- `eval`: calls the evaluation function in the user-defined `evaluation.py` file.
+- `preview`: calls the preview function in the user-defined `preview.py` file.
+- `healthcheck`: runs all unittests for schema testing as well as user-defined tests in `evaluation_tests.py`.
+- `docs`: returns the `docs.md` user-defined file.
+
+### muEd API
+
+Requests to `/evaluate` and `/evaluate/health` are validated against the muEd OpenAPI spec (`schemas/muEd/openapi-v0_1_0.yml`).
+
+- `POST /evaluate`: runs evaluation. If `preSubmissionFeedback.enabled` is `true`, returns pre-submission feedback instead of a full evaluation result.
+- `GET /evaluate/health`: runs the healthcheck suite.
+
+#### Submission Types
+
+The muEd API supports the following submission types. The handler extracts the submission content from the corresponding key in the `content` object:
+
+| Type | Content key |
+|------|-------------|
+| `MATH` | `expression` |
+| `TEXT` | `text` |
+| `CODE` | `code` |
+| `MODEL` | `model` |
+| `OTHER` | `value` |
+
+If the primary content key is absent, the handler falls back to the `value` key. An error is raised only if neither key is present.
+
+## Schemas
+
+Schemas are organised into two trees:
+
+- `schemas/legacy/` — JSON schemas for legacy request/response validation
+- `schemas/muEd/openapi-v0_1_0.yml` — OpenAPI spec for the muEd API
+
+Note: `title` is not a required field in the Task schema.
 
 ## Requirements from the superseding layer
 
