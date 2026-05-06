@@ -143,7 +143,7 @@ def _run_evaluation(response: Any, answer: Any, params: Dict) -> Dict:
 
             # Override is_correct provided by the
             # original block by the case 'mark'
-            if "mark" in match:
+            if "mark" in match and match["mark"] is not None:
                 result["is_correct"] = bool(int(match["mark"]))
 
     return result
@@ -166,10 +166,18 @@ def evaluate(body: JsonType) -> Response:
 def _extract_muEd_submission(body: JsonType):
     """Extract response, params, and content_key from a muEd request body."""
     submission = body["submission"]
-    sub_type = submission.get("type", "MATH")
+    sub_type = submission.get("type", "OTHER")
     _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
     content_key = _type_key.get(sub_type, "value")
-    response = submission.get("content", {}).get(content_key)
+    content = submission.get("content", {})
+    response = content.get(content_key)
+    if response is None and content_key != "value":
+        response = content.get("value")
+    if response is None:
+        raise EvaluationException(
+            f"Could not extract response: expected '{content_key}' (or 'value') "
+            f"in submission content."
+        )
     params = body.get("configuration", {}).get("params", {})
     return response, params, content_key
 
@@ -187,17 +195,22 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
     if task:
         ref = task.get("referenceSolution") or {}
         answer = ref.get(content_key)
+        if answer is None and content_key != "value":
+            answer = ref.get("value")
     else:
         answer = None
 
     result = _run_evaluation(response, answer, params)
 
-    is_correct = result.get("is_correct", 0)
+    is_correct = result.get("is_correct") or 0
     feedback_text = result.get("feedback", "")
 
     feedback_item: Dict = {
         "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
         "awardedPoints": int(is_correct),
+        "matchedCase": result.get("matched_case"),
+        "responseLatex": result.get("response_latex"),
+        "responseSimplified": result.get("response_simplified"),
     }
 
     if result.get("tags"):
