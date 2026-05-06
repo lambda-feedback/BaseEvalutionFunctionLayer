@@ -1,10 +1,20 @@
 import base64
+import os
 import unittest
 
 from ..tools import docs
 
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 
 class TestDocsModule(unittest.TestCase):
+    def setUp(self):
+        self._orig_cwd = os.getcwd()
+        os.chdir(_PROJECT_ROOT)
+
+    def tearDown(self):
+        os.chdir(self._orig_cwd)
+
     def test_handling_available_doc(self):
         result = docs.send_file("tests/test_file.md")
 

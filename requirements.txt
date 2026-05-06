@@ -1,4 +1,5 @@
 jsonschema
+pyyaml
 requests
 evaluation-function-utils
 typing_extensions

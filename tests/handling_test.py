@@ -1,9 +1,13 @@
+import os
 import unittest
+from pathlib import Path
 from typing import Optional
 
 from ..handler import handler
 from ..tools import commands
 from ..tools.utils import EvaluationFunctionType
+
+_SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
 
 evaluation_function: Optional[
     EvaluationFunctionType
@@ -12,10 +16,12 @@ evaluation_function: Optional[
 
 class TestHandlerFunction(unittest.TestCase):
     def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
         commands.evaluation_function = evaluation_function
         return super().setUp()
 
     def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
         commands.evaluation_function = None
         return super().tearDown()
 

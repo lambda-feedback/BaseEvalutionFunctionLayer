@@ -1,0 +1,648 @@
+import os
+import unittest
+from pathlib import Path
+from typing import Optional
+
+from ..handler import handler
+from ..tools import commands
+from ..tools.utils import EvaluationFunctionType
+
+_SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
+
+evaluation_function: Optional[
+    EvaluationFunctionType
+] = lambda response, answer, params: {"is_correct": True, "feedback": "Well done."}
+
+
+class TestMuEdHandlerFunction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        commands.evaluation_function = evaluation_function
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_evaluate_returns_feedback_list(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "TEXT", "content": {"text": ""}}},
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(len(response), 1)
+        self.assertIn("awardedPoints", response[0])
+
+    def test_evaluate_feedback_message(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "TEXT", "content": {"text": "hello"}}},
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(response[0]["message"], "Well done.")
+        self.assertEqual(response[0]["awardedPoints"], True)
+
+    def test_evaluate_with_task(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "TEXT", "content": {"text": "Polymorphism allows..."}},
+                "task": {
+                    "title": "OOP Concepts",
+                    "referenceSolution": {"text": "Polymorphism allows objects..."},
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+
+    def test_evaluate_missing_submission_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"task": {"title": "Some Task"}},
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+        self.assertIn("submission", response["error"]["detail"])  # type: ignore
+
+    def test_evaluate_invalid_submission_type_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "INVALID"}},
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+
+    def test_evaluate_bodyless_event_returns_error(self):
+        event = {"path": "/evaluate", "random": "metadata"}
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+        self.assertEqual(
+            response["error"]["message"],  # type: ignore
+            "No data supplied in request body.",
+        )
+
+    def test_healthcheck(self):
+        event = {"path": "/evaluate/health"}
+
+        response = handler(event)
+
+        self.assertEqual(response.get("command"), "healthcheck")
+        self.assertIn("result", response)
+
+    def test_unknown_path_falls_back_to_legacy(self):
+        event = {
+            "path": "/unknown",
+            "body": {"response": "hello", "answer": "world!"},
+            "headers": {"command": "eval"},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response.get("command"), "eval")
+        self.assertIn("result", response)
+
+    def test_evaluate_response_latex_and_simplified_are_none_when_not_returned(self):
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["responseLatex"])  # type: ignore
+        self.assertIsNone(response[0]["responseSimplified"])  # type: ignore
+
+    def test_evaluate_response_latex_and_simplified_populated_when_returned(self):
+        commands.evaluation_function = lambda r, a, p: {
+            "is_correct": True,
+            "feedback": "Well done.",
+            "response_latex": r"x + 1",
+            "response_simplified": "x + 1",
+        }
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["responseLatex"], r"x + 1")  # type: ignore
+        self.assertEqual(response[0]["responseSimplified"], "x + 1")  # type: ignore
+
+
+class TestMuEdEvaluateExtraction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self.captured: dict = {}
+        captured = self.captured
+
+        def capturing_eval(response, answer, params):
+            captured["response"] = response
+            captured["answer"] = answer
+            captured["params"] = params
+            return {"is_correct": True, "feedback": "Captured."}
+
+        commands.evaluation_function = capturing_eval
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_math_submission_extracts_expression(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "x+1")
+        self.assertEqual(self.captured["answer"], "x+1")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+    def test_text_submission_extracts_text(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "TEXT", "content": {"text": "hello"}},
+                "task": {"title": "T", "referenceSolution": {"text": "hello"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "hello")
+        self.assertEqual(self.captured["answer"], "hello")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+    def test_other_submission_extracts_value(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "OTHER", "content": {"value": "some text"}},
+                "task": {"title": "T", "referenceSolution": {"value": "some text"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "some text")
+        self.assertEqual(self.captured["answer"], "some text")
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+    def test_typed_submission_falls_back_to_value_key(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"value": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"value": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["response"], "x+1")
+        self.assertEqual(self.captured["answer"], "x+1")
+
+    def test_missing_content_key_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"unknown_key": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertIn("error", result)
+        self.assertIn("expression", result["error"]["message"])
+
+    def test_configuration_params_forwarded(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "configuration": {"params": {"strict_syntax": False}},
+            },
+        }
+        result = handler(event)
+        self.assertEqual(self.captured["params"], {"strict_syntax": False})
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+    def test_no_task_answer_is_none(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+            },
+        }
+        result = handler(event)
+        self.assertIsNone(self.captured["answer"])
+        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+
+
+class TestMuEdPreviewHandlerFunction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        commands.preview_function = lambda response, params: {
+            "preview": {"latex": f"\\text{{{response}}}", "sympy": response}
+        }
+        commands.evaluation_function = lambda response, answer, params: {
+            "is_correct": True, "feedback": "Well done."
+        }
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.preview_function = None
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_preview_returns_feedback_list(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(len(response), 1)
+
+    def test_preview_feedback_id_is_preSubmissionFeedback(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertNotIn("feedbackId", response[0])  # type: ignore
+
+    def test_preview_contains_preSubmissionFeedback_field(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIn("preSubmissionFeedback", response[0])  # type: ignore
+
+    def test_preview_preSubmissionFeedback_has_latex_and_sympy(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        preview = response[0]["preSubmissionFeedback"]  # type: ignore
+        self.assertIn("latex", preview)
+        self.assertIn("sympy", preview)
+
+    def test_preview_missing_submission_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "configuration": {"params": {}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+
+    def test_preview_bodyless_event_returns_error(self):
+        event = {"path": "/evaluate", "random": "metadata"}
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+        self.assertEqual(
+            response["error"]["message"],  # type: ignore
+            "No data supplied in request body.",
+        )
+
+    def test_preview_invalid_submission_type_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "INVALID", "content": {}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIn("error", response)
+
+    def test_presubmission_disabled_runs_normal_evaluation(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": False},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertIn("awardedPoints", response[0])  # type: ignore
+        self.assertNotIn("preSubmissionFeedback", response[0])  # type: ignore
+
+
+class TestMuEdPreviewExtraction(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self.captured: dict = {}
+        captured = self.captured
+
+        def capturing_preview(response, params):
+            captured["response"] = response
+            captured["params"] = params
+            return {"preview": {"latex": "captured", "sympy": str(response)}}
+
+        commands.preview_function = capturing_preview
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.preview_function = None
+        return super().tearDown()
+
+    def test_math_submission_extracts_expression(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "x+1")
+
+    def test_text_submission_extracts_text(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "TEXT", "content": {"text": "hello"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "hello")
+
+    def test_other_submission_extracts_value(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "OTHER", "content": {"value": "some text"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "some text")
+
+    def test_typed_submission_falls_back_to_value_key(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"value": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["response"], "x+1")
+
+    def test_configuration_params_forwarded(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "configuration": {"params": {"strict_syntax": False, "is_latex": True}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        handler(event)
+
+        self.assertEqual(self.captured["params"], {"strict_syntax": False, "is_latex": True})
+
+    def test_no_task_required(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "sin(x)"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsInstance(response, list)
+        self.assertEqual(self.captured["response"], "sin(x)")
+
+    def test_preview_result_propagated(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["preSubmissionFeedback"]["latex"], "captured")  # type: ignore
+        self.assertEqual(response[0]["preSubmissionFeedback"]["sympy"], "x+1")  # type: ignore
+
+
+class TestMuEdMatchedCase(unittest.TestCase):
+    def setUp(self) -> None:
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        commands.evaluation_function = lambda response, answer, params: {
+            "is_correct": response == answer,
+            "feedback": "Default feedback.",
+        }
+        return super().setUp()
+
+    def tearDown(self) -> None:
+        os.environ.pop("SCHEMA_DIR", None)
+        commands.evaluation_function = None
+        return super().tearDown()
+
+    def test_matched_case_is_none_when_no_cases(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_is_none_when_no_case_matches(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+3", "feedback": "Try again."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_index_when_first_case_matches(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "100+100.1(j)"}},
+                "task": {
+                    "title": "Evaluation Task",
+                    "referenceSolution": {"expression": "100+100.1j"},
+                },
+                "configuration": {
+                    "params": {
+                        "atol": 0,
+                        "rtol": 0,
+                        "strict_syntax": False,
+                        "physical_quantity": False,
+                        "elementary_functions": True,
+                        "cases": [
+                            {
+                                "answer": "100+100.1(j)",
+                                "params": {
+                                    "atol": 0,
+                                    "rtol": 0,
+                                    "strict_syntax": False,
+                                    "physical_quantity": False,
+                                    "elementary_functions": True,
+                                },
+                                "feedback": "Hello",
+                            }
+                        ],
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 0)  # type: ignore
+        self.assertEqual(response[0]["message"], "Hello")  # type: ignore
+
+    def test_matched_case_index_second_case(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+3", "feedback": "Not case 0."},
+                            {"answer": "x+1", "feedback": "This is case 1."},
+                            {"answer": "x+4", "feedback": "Not case 2."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 1)  # type: ignore
+        self.assertEqual(response[0]["message"], "This is case 1.")  # type: ignore
+
+    def test_matched_case_is_none_when_correct(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+1", "feedback": "Matched but not checked."},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["awardedPoints"], 1)  # type: ignore
+        self.assertIsNone(response[0]["matchedCase"])  # type: ignore
+
+    def test_matched_case_with_mark_override(self):
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "task": {"title": "T", "referenceSolution": {"expression": "x+2"}},
+                "configuration": {
+                    "params": {
+                        "cases": [
+                            {"answer": "x+1", "feedback": "Close enough!", "mark": 1},
+                        ]
+                    }
+                },
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response[0]["matchedCase"], 0)  # type: ignore
+        self.assertEqual(response[0]["awardedPoints"], 1)  # type: ignore
+        self.assertEqual(response[0]["message"], "Close enough!")  # type: ignore
+
+
+if __name__ == "__main__":
+    unittest.main()

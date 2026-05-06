@@ -1,10 +1,20 @@
+import os
 import unittest
+from pathlib import Path
 
 from ..tools import validate
-from ..tools.validate import ReqBodyValidators, ValidationError
+from ..tools.validate import LegacyReqBodyValidators as ReqBodyValidators, ValidationError
+
+_SCHEMAS_DIR = str(Path(__file__).parent.parent / "schemas")
 
 
 class TestRequestValidation(unittest.TestCase):
+    def setUp(self):
+        os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+
+    def tearDown(self):
+        os.environ.pop("SCHEMA_DIR", None)
+
     def test_empty_request_body(self):
         body = {}
 

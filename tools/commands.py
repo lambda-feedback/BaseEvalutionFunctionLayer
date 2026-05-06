@@ -1,17 +1,15 @@
 import warnings
-from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict
+from typing import Any, Dict, List, NamedTuple, Optional, Tuple, TypedDict, Union
 
 from evaluation_function_utils.errors import EvaluationException
 
 from . import healthcheck as health
-from . import parse, validate
 from .utils import (
     EvaluationFunctionType,
     JsonType,
     PreviewFunctionType,
     Response,
 )
-from .validate import ReqBodyValidators
 
 try:
     from ..evaluation import evaluation_function  # type: ignore
@@ -71,27 +69,18 @@ def healthcheck() -> Response:
 
 
 def preview(
-    event: JsonType, fnc: Optional[PreviewFunctionType] = None
+    body: JsonType, fnc: Optional[PreviewFunctionType] = None
 ) -> Response:
     """Run the preview command for the evaluation function.
 
-    Note:
-        The body of the event is validated against the preview schema
-        before running the preview function.
-
     Args:
-        event (JsonType): The dictionary received by the gateway. Must
-        include a body field which may be a JSON string or a dictionary.
+        body (JsonType): The validated request body.
         fnc (Optional[PreviewFunctionType]): A function to override the
         current preview function (for testing). Defaults to None.
 
     Returns:
         Response: The result given the response and params in the body.
     """
-    body = parse.body(event)
-
-    validate.body(body, ReqBodyValidators.PREVIEW)
-
     params = body.get("params", {})
     fnc = fnc or preview_function
 
@@ -100,42 +89,28 @@ def preview(
     return Response(command="preview", result=result)
 
 
-def evaluate(event: JsonType) -> Response:
-    """Run the evaluation command for the evaluation function.
-
-    Note:
-        The body of the event is validated against the eval schema
-        before running the evaluation function.
-
-        If cases are included in the params, this function checks for
-        matching answers and returns the specified feedback.
+def _run_evaluation(response: Any, answer: Any, params: Dict) -> Dict:
+    """Core evaluation logic shared by legacy and muEd command functions.
 
     Args:
-        event (JsonType): The dictionary received by the gateway. Must
-        include a body field which may be a JSON string or a dictionary.
-        fnc (Optional[EvaluationFunctionType]): A function to override the
-        current evaluation function (for testing). Defaults to None.
+        response (Any): The student's response.
+        answer (Any): The reference answer.
+        params (Dict): The evaluation parameters.
 
     Returns:
-        Response: The result given the response and params in the body.
+        Dict: The raw result from the evaluation function, with case
+        feedback applied if applicable.
     """
-    body = parse.body(event)
-    validate.body(body, ReqBodyValidators.EVALUATION)
-
-    params = body.get("params", {})
-
     if evaluation_function is None:
         raise EvaluationException("Evaluation function is not defined.")
 
-    result = evaluation_function(body["response"], body["answer"], params)
+    result = evaluation_function(response, answer, params)
 
     if result["is_correct"] is False and "cases" in params and len(params["cases"]) > 0:
-        match, warnings = get_case_feedback(
-            body["response"], params, params["cases"]
-        )
+        match, case_warnings = get_case_feedback(response, params, params["cases"])
 
-        if warnings:
-            result["warnings"] = warnings
+        if case_warnings:
+            result["warnings"] = case_warnings
 
         if match is not None:
             result["feedback"] = match["feedback"]
@@ -143,10 +118,95 @@ def evaluate(event: JsonType) -> Response:
 
             # Override is_correct provided by the
             # original block by the case 'mark'
-            if "mark" in match:
+            if "mark" in match and match["mark"] is not None:
                 result["is_correct"] = bool(int(match["mark"]))
 
+    return result
+
+
+def evaluate(body: JsonType) -> Response:
+    """Run the evaluation command for the evaluation function (legacy format).
+
+    Args:
+        body (JsonType): The validated request body.
+
+    Returns:
+        Response: The result given the response and params in the body.
+    """
+    params = body.get("params", {})
+    result = _run_evaluation(body["response"], body["answer"], params)
     return Response(command="eval", result=result)
+
+
+def _extract_muEd_submission(body: JsonType):
+    """Extract response, params, and content_key from a muEd request body."""
+    submission = body["submission"]
+    sub_type = submission.get("type", "OTHER")
+    _type_key = {"MATH": "expression", "TEXT": "text", "CODE": "code", "MODEL": "model"}
+    content_key = _type_key.get(sub_type, "value")
+    content = submission.get("content", {})
+    response = content.get(content_key)
+    if response is None and content_key != "value":
+        response = content.get("value")
+    if response is None:
+        raise EvaluationException(
+            f"Could not extract response: expected '{content_key}' (or 'value') "
+            f"in submission content."
+        )
+    params = body.get("configuration", {}).get("params", {})
+    return response, params, content_key
+
+
+def _run_muEd_preview(body: JsonType) -> List[Dict]:
+    response, params, _ = _extract_muEd_submission(body)
+    preview_result = preview_function(response, params)
+    return [{"preSubmissionFeedback": preview_result.get("preview", {})}]
+
+
+def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
+    response, params, content_key = _extract_muEd_submission(body)
+
+    task = body.get("task")
+    if task:
+        ref = task.get("referenceSolution") or {}
+        answer = ref.get(content_key)
+        if answer is None and content_key != "value":
+            answer = ref.get("value")
+    else:
+        answer = None
+
+    result = _run_evaluation(response, answer, params)
+
+    is_correct = result.get("is_correct") or 0
+    feedback_text = result.get("feedback", "")
+
+    feedback_item: Dict = {
+        "message": feedback_text if isinstance(feedback_text, str) else str(feedback_text),
+        "awardedPoints": int(is_correct),
+        "matchedCase": result.get("matched_case"),
+        "responseLatex": result.get("response_latex"),
+        "responseSimplified": result.get("response_simplified"),
+    }
+
+    if result.get("tags"):
+        feedback_item["tags"] = result["tags"]
+
+    return [feedback_item]
+
+
+def evaluate_muEd(body: JsonType) -> List[Dict]:
+    """Run the evaluation command for the evaluation function (muEd format).
+
+    Args:
+        body (JsonType): The validated muEd request body.
+
+    Returns:
+        List[Dict]: A list of Feedback items.
+    """
+    pre_sub = body.get("preSubmissionFeedback") or {}
+    if pre_sub.get("enabled"):
+        return _run_muEd_preview(body)
+    return _run_muEd_evaluation(body)
 
 
 def get_case_feedback(
