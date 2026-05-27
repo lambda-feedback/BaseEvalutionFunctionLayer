@@ -5,7 +5,7 @@ from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
 from typing import Any, Optional
 
-from .tools.utils import DocsResponse, ErrorResponse, HandlerResponse, JsonType, Response
+from .tools.utils import DocsResponse, ErrorCode, ErrorResponse, HandlerResponse, JsonType, Response
 from .tools.validate import (
     LegacyReqBodyValidators,
     LegacyResBodyValidators,
@@ -103,7 +103,7 @@ def check_muEd_version(event: JsonType) -> Optional[HandlerResponse]:
                 f"The requested API version '{version}' is not supported. "
                 f"Supported versions are: {commands.SUPPORTED_MUED_VERSIONS}."
             ),
-            "code": "VERSION_NOT_SUPPORTED",
+            "code": ErrorCode.VERSION_NOT_SUPPORTED,
             "details": {
                 "requestedVersion": version,
                 "supportedVersions": commands.SUPPORTED_MUED_VERSIONS,
@@ -122,26 +122,51 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
     Returns:
         HandlerResponse: The response object returned by the handler.
     """
-    version_error = check_muEd_version(event)
-    if version_error:
-        return wrap_muEd_response(version_error, event, 406)
+    try:
+        version_error = check_muEd_version(event)
+        if version_error:
+            return wrap_muEd_response(version_error, event, 406)
 
-    if command == "eval":
-        body = parse.body(event)
-        validate.body(body, MuEdReqBodyValidators.EVALUATION)
-        response = commands.evaluate_muEd(body)
-        validate.body(response, MuEdResBodyValidators.EVALUATION)
+        if command == "eval":
+            body = parse.body(event)
+            validate.body(body, MuEdReqBodyValidators.EVALUATION)
+            response = commands.evaluate_muEd(body)
+            validate.body(response, MuEdResBodyValidators.EVALUATION)
 
-    elif command == "healthcheck":
-        response = commands.healthcheck_muEd()
-        validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
+        elif command == "healthcheck":
+            response = commands.healthcheck_muEd()
+            validate.body(response, MuEdResBodyValidators.HEALTHCHECK)
+            status_code = 503 if response.get("status") == "UNAVAILABLE" else 200
+            return wrap_muEd_response(response, event, status_code)
 
-    else:
-        response = Response(
-            error=ErrorResponse(message=f"Unknown command '{command}'.")
-        )
+        else:
+            error = {
+                "title": "Not implemented",
+                "message": f"Unknown command '{command}'.",
+                "code": ErrorCode.NOT_IMPLEMENTED,
+            }
+            return wrap_muEd_response(error, event, 501)
 
-    return wrap_muEd_response(response, event)
+        return wrap_muEd_response(response, event)
+
+    except (ParseError, ValidationError) as e:
+        error = {
+            "title": "Bad request",
+            "message": e.message,
+            "code": ErrorCode.VALIDATION_ERROR,
+            "details": {"error": str(e.error_thrown)} if e.error_thrown else None,
+        }
+        return wrap_muEd_response(error, event, 400)
+
+    except EvaluationException as e:
+        detail = str(e) if str(e) else repr(e)
+        error = {"title": "Internal server error", "message": detail, "code": ErrorCode.INTERNAL_ERROR}
+        return wrap_muEd_response(error, event, 500)
+
+    except Exception as e:
+        detail = str(e) if str(e) else repr(e)
+        error = {"title": "Internal server error", "message": detail, "code": ErrorCode.INTERNAL_ERROR}
+        return wrap_muEd_response(error, event, 500)
 
 
 def handler(event: JsonType, _=None) -> HandlerResponse:

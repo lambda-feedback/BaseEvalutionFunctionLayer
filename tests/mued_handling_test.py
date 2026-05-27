@@ -78,8 +78,9 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn("error", response)
-        self.assertIn("submission", response["error"]["detail"])  # type: ignore
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
 
     def test_evaluate_invalid_submission_type_returns_error(self):
         event = {
@@ -89,18 +90,19 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn("error", response)
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
 
     def test_evaluate_bodyless_event_returns_error(self):
         event = {"path": "/evaluate", "random": "metadata"}
 
         response = handler(event)
 
-        self.assertIn("error", response)
-        self.assertEqual(
-            response["error"]["message"],  # type: ignore
-            "No data supplied in request body.",
-        )
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
+        self.assertEqual(body["message"], "No data supplied in request body.")
 
     def test_healthcheck(self):
         event = {"path": "/evaluate/health"}
@@ -389,18 +391,19 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn("error", response)
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
 
     def test_preview_bodyless_event_returns_error(self):
         event = {"path": "/evaluate", "random": "metadata"}
 
         response = handler(event)
 
-        self.assertIn("error", response)
-        self.assertEqual(
-            response["error"]["message"],  # type: ignore
-            "No data supplied in request body.",
-        )
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
+        self.assertEqual(body["message"], "No data supplied in request body.")
 
     def test_preview_invalid_submission_type_returns_error(self):
         event = {
@@ -413,7 +416,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIn("error", response)
+        self.assertEqual(response["statusCode"], 400)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
 
     def test_presubmission_disabled_runs_normal_evaluation(self):
         event = {
