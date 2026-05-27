@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from pathlib import Path
@@ -17,12 +18,13 @@ evaluation_function: Optional[
 class TestMuEdHandlerFunction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_eval = commands.evaluation_function
         commands.evaluation_function = evaluation_function
         return super().setUp()
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.evaluation_function = None
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_evaluate_returns_feedback_list(self):
@@ -33,9 +35,11 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(len(response), 1)
-        self.assertIn("awardedPoints", response[0])
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertEqual(len(body), 1)
+        self.assertIn("awardedPoints", body[0])
 
     def test_evaluate_feedback_message(self):
         event = {
@@ -45,9 +49,9 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(response[0]["message"], "Well done.")
-        self.assertEqual(response[0]["awardedPoints"], True)
+        body = json.loads(response["body"])
+        self.assertEqual(body[0]["message"], "Well done.")
+        self.assertEqual(body[0]["awardedPoints"], True)
 
     def test_evaluate_with_task(self):
         event = {
@@ -63,7 +67,8 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
 
     def test_evaluate_missing_submission_returns_error(self):
         event = {
@@ -102,8 +107,52 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertEqual(response.get("command"), "healthcheck")
-        self.assertIn("result", response)
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertIn(body.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+        capabilities = body.get("capabilities", {})
+        self.assertIn("supportedAPIVersions", capabilities)
+        self.assertIn("0.1.0", capabilities["supportedAPIVersions"])
+
+    def test_supported_version_header_is_accepted(self):
+        event = {
+            "path": "/evaluate/health",
+            "headers": {"X-Api-Version": "0.1.0"},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 200)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertIn(body.get("status"), ("OK", "DEGRADED", "UNAVAILABLE"))
+
+    def test_unsupported_version_header_returns_error(self):
+        event = {
+            "path": "/evaluate",
+            "headers": {"X-Api-Version": "99.0.0"},
+            "body": {"submission": {"type": "TEXT", "content": {}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 406)
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertEqual(body.get("code"), "VERSION_NOT_SUPPORTED")
+        self.assertIn("details", body)
+        self.assertEqual(body["details"]["requestedVersion"], "99.0.0")
+        self.assertIn("0.1.0", body["details"]["supportedVersions"])
+
+    def test_absent_version_header_proceeds_normally(self):
+        event = {"path": "/evaluate/health"}
+
+        response = handler(event)
+
+        self.assertEqual(response["headers"]["X-Api-Version"], "0.1.0")
+        body = json.loads(response["body"])
+        self.assertNotIn("code", body)
 
     def test_unknown_path_falls_back_to_legacy(self):
         event = {
@@ -149,6 +198,7 @@ class TestMuEdHandlerFunction(unittest.TestCase):
 class TestMuEdEvaluateExtraction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_eval = commands.evaluation_function
         self.captured: dict = {}
         captured = self.captured
 
@@ -163,7 +213,7 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.evaluation_function = None
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_math_submission_extracts_expression(self):
@@ -174,10 +224,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"expression": "x+1"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["response"], "x+1")
         self.assertEqual(self.captured["answer"], "x+1")
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_text_submission_extracts_text(self):
         event = {
@@ -187,10 +237,10 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "task": {"title": "T", "referenceSolution": {"text": "hello"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["response"], "hello")
         self.assertEqual(self.captured["answer"], "hello")
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_other_submission_extracts_value(self):
         event = {
@@ -236,9 +286,9 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "configuration": {"params": {"strict_syntax": False}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertEqual(self.captured["params"], {"strict_syntax": False})
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
     def test_no_task_answer_is_none(self):
         event = {
@@ -247,14 +297,16 @@ class TestMuEdEvaluateExtraction(unittest.TestCase):
                 "submission": {"type": "MATH", "content": {"expression": "x+1"}},
             },
         }
-        result = handler(event)
+        result = json.loads(handler(event)["body"])
         self.assertIsNone(self.captured["answer"])
-        self.assertEqual(result[0]["awardedPoints"], True)  # type: ignore
+        self.assertEqual(result[0]["awardedPoints"], True)
 
 
 class TestMuEdPreviewHandlerFunction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_preview = commands.preview_function
+        self._orig_eval = commands.evaluation_function
         commands.preview_function = lambda response, params: {
             "preview": {"latex": f"\\text{{{response}}}", "sympy": response}
         }
@@ -265,8 +317,8 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.preview_function = None
-        commands.evaluation_function = None
+        commands.preview_function = self._orig_preview
+        commands.evaluation_function = self._orig_eval
         return super().tearDown()
 
     def test_preview_returns_feedback_list(self):
@@ -280,8 +332,10 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertEqual(len(response), 1)
+        self.assertEqual(response["statusCode"], 200)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertEqual(len(body), 1)
 
     def test_preview_feedback_id_is_preSubmissionFeedback(self):
         event = {
@@ -292,9 +346,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             },
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertNotIn("feedbackId", response[0])  # type: ignore
+        self.assertNotIn("feedbackId", body[0])
 
     def test_preview_contains_preSubmissionFeedback_field(self):
         event = {
@@ -305,9 +359,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             },
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertIn("preSubmissionFeedback", response[0])  # type: ignore
+        self.assertIn("preSubmissionFeedback", body[0])
 
     def test_preview_preSubmissionFeedback_has_latex_and_sympy(self):
         event = {
@@ -318,9 +372,9 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
             },
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        preview = response[0]["preSubmissionFeedback"]  # type: ignore
+        preview = body[0]["preSubmissionFeedback"]
         self.assertIn("latex", preview)
         self.assertIn("sympy", preview)
 
@@ -372,14 +426,16 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
-        self.assertIn("awardedPoints", response[0])  # type: ignore
-        self.assertNotIn("preSubmissionFeedback", response[0])  # type: ignore
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
+        self.assertIn("awardedPoints", body[0])
+        self.assertNotIn("preSubmissionFeedback", body[0])
 
 
 class TestMuEdPreviewExtraction(unittest.TestCase):
     def setUp(self) -> None:
         os.environ["SCHEMA_DIR"] = _SCHEMAS_DIR
+        self._orig_preview = commands.preview_function
         self.captured: dict = {}
         captured = self.captured
 
@@ -393,7 +449,7 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
     def tearDown(self) -> None:
         os.environ.pop("SCHEMA_DIR", None)
-        commands.preview_function = None
+        commands.preview_function = self._orig_preview
         return super().tearDown()
 
     def test_math_submission_extracts_expression(self):
@@ -473,7 +529,8 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
 
         response = handler(event)
 
-        self.assertIsInstance(response, list)
+        body = json.loads(response["body"])
+        self.assertIsInstance(body, list)
         self.assertEqual(self.captured["response"], "sin(x)")
 
     def test_preview_result_propagated(self):
@@ -485,10 +542,10 @@ class TestMuEdPreviewExtraction(unittest.TestCase):
             },
         }
 
-        response = handler(event)
+        body = json.loads(handler(event)["body"])
 
-        self.assertEqual(response[0]["preSubmissionFeedback"]["latex"], "captured")  # type: ignore
-        self.assertEqual(response[0]["preSubmissionFeedback"]["sympy"], "x+1")  # type: ignore
+        self.assertEqual(body[0]["preSubmissionFeedback"]["latex"], "captured")
+        self.assertEqual(body[0]["preSubmissionFeedback"]["sympy"], "x+1")
 
 
 class TestMuEdMatchedCase(unittest.TestCase):

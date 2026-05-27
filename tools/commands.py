@@ -58,6 +58,9 @@ class CaseResult(NamedTuple):
     warning: Optional[CaseWarning] = None
 
 
+SUPPORTED_MUED_VERSIONS: list[str] = ["0.1.0"]
+
+
 def healthcheck() -> Response:
     """Run the healthcheck command for the evaluation function.
 
@@ -66,6 +69,27 @@ def healthcheck() -> Response:
     """
     result = health.healthcheck()
     return Response(command="healthcheck", result=result)
+
+
+def healthcheck_muEd() -> Dict:
+    """Run the healthcheck command and return a muEd EvaluateHealthResponse.
+
+    Returns:
+        Dict: A spec-compliant EvaluateHealthResponse.
+    """
+    result = health.healthcheck()
+    status = "OK" if result["tests_passed"] else "DEGRADED"
+    return {
+        "status": status,
+        "capabilities": {
+            "supportsEvaluate": True,
+            "supportsPreSubmissionFeedback": True,
+            "supportsFormativeFeedback": True,
+            "supportsSummativeFeedback": False,
+            "supportsDataPolicy": "NOT_SUPPORTED",
+            "supportedAPIVersions": SUPPORTED_MUED_VERSIONS,
+        },
+    }
 
 
 def preview(
