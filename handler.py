@@ -5,7 +5,7 @@ from .tools import commands, docs, parse, validate
 from .tools.parse import ParseError
 from typing import Any, Optional
 
-from .tools.utils import DocsResponse, ErrorResponse, HandlerResponse, JsonType, Response
+from .tools.utils import DocsResponse, ErrorCode, ErrorResponse, HandlerResponse, JsonType, Response
 from .tools.validate import (
     LegacyReqBodyValidators,
     LegacyResBodyValidators,
@@ -103,7 +103,7 @@ def check_muEd_version(event: JsonType) -> Optional[HandlerResponse]:
                 f"The requested API version '{version}' is not supported. "
                 f"Supported versions are: {commands.SUPPORTED_MUED_VERSIONS}."
             ),
-            "code": "VERSION_NOT_SUPPORTED",
+            "code": ErrorCode.VERSION_NOT_SUPPORTED,
             "details": {
                 "requestedVersion": version,
                 "supportedVersions": commands.SUPPORTED_MUED_VERSIONS,
@@ -143,7 +143,7 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
             error = {
                 "title": "Not implemented",
                 "message": f"Unknown command '{command}'.",
-                "code": "NOT_IMPLEMENTED",
+                "code": ErrorCode.NOT_IMPLEMENTED,
             }
             return wrap_muEd_response(error, event, 501)
 
@@ -153,19 +153,19 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
         error = {
             "title": "Bad request",
             "message": e.message,
-            "code": "VALIDATION_ERROR",
+            "code": ErrorCode.VALIDATION_ERROR,
             "details": {"error": str(e.error_thrown)} if e.error_thrown else None,
         }
         return wrap_muEd_response(error, event, 400)
 
     except EvaluationException as e:
         detail = str(e) if str(e) else repr(e)
-        error = {"title": "Internal server error", "message": detail, "code": "INTERNAL_ERROR"}
+        error = {"title": "Internal server error", "message": detail, "code": ErrorCode.INTERNAL_ERROR}
         return wrap_muEd_response(error, event, 500)
 
     except Exception as e:
         detail = str(e) if str(e) else repr(e)
-        error = {"title": "Internal server error", "message": detail, "code": "INTERNAL_ERROR"}
+        error = {"title": "Internal server error", "message": detail, "code": ErrorCode.INTERNAL_ERROR}
         return wrap_muEd_response(error, event, 500)
 
 

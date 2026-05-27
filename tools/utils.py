@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+import enum
 from typing import Any, Callable, Dict, Literal, TypedDict, Union
 
 from typing_extensions import NotRequired
 
 JsonType = Dict[str, Any]
+
+
+class ErrorCode(str, enum.Enum):
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    VERSION_NOT_SUPPORTED = "VERSION_NOT_SUPPORTED"
+    NOT_IMPLEMENTED = "NOT_IMPLEMENTED"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
 SupportedCommands = Literal["eval", "grade", "preview", "healthcheck"]
 
 EvaluationFunctionType = Callable[[Any, Any, JsonType], JsonType]
