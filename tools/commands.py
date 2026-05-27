@@ -216,6 +216,11 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
     if result.get("tags"):
         feedback_item["tags"] = result["tags"]
 
+    _known_keys = {"is_correct", "feedback", "matched_case", "response_latex", "response_simplified", "tags"}
+    for k, v in result.items():
+        if k not in _known_keys:
+            feedback_item[k] = v
+
     return [feedback_item]
 
 
