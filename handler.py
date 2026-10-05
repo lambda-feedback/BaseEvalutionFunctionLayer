@@ -158,6 +158,11 @@ def handle_muEd_command(event: JsonType, command: str) -> HandlerResponse:
         }
         return wrap_muEd_response(error, event, 400)
 
+    except commands.InvalidSubmissionError as e:
+        detail = str(e) if str(e) else repr(e)
+        error = {"title": "Unprocessable submission", "message": detail, "code": ErrorCode.VALIDATION_ERROR}
+        return wrap_muEd_response(error, event, 422)
+
     except EvaluationException as e:
         detail = str(e) if str(e) else repr(e)
         error = {"title": "Internal server error", "message": detail, "code": ErrorCode.INTERNAL_ERROR}

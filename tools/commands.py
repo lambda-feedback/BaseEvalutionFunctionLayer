@@ -42,6 +42,10 @@ except ImportError:
     )
 
 
+class InvalidSubmissionError(Exception):
+    """Raised when the evaluation function cannot process the submitted response."""
+
+
 class CaseWarning(TypedDict, total=False):
     """Dictionary for reporting issues when testing cases"""
 
@@ -184,7 +188,10 @@ def _extract_muEd_submission(body: JsonType):
 
 def _run_muEd_preview(body: JsonType) -> List[Dict]:
     response, params, _ = _extract_muEd_submission(body)
-    preview_result = preview_function(response, params)
+    try:
+        preview_result = preview_function(response, params)
+    except ValueError as e:
+        raise InvalidSubmissionError(str(e)) from e
     return [{"preSubmissionFeedback": preview_result.get("preview", {})}]
 
 
@@ -200,7 +207,10 @@ def _run_muEd_evaluation(body: JsonType) -> List[Dict]:
     else:
         answer = None
 
-    result = _run_evaluation(response, answer, params)
+    try:
+        result = _run_evaluation(response, answer, params)
+    except ValueError as e:
+        raise InvalidSubmissionError(str(e)) from e
 
     is_correct = result.get("is_correct") or 0
     feedback_text = result.get("feedback", "")

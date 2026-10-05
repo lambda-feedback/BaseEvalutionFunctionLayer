@@ -436,6 +436,78 @@ class TestMuEdPreviewHandlerFunction(unittest.TestCase):
         self.assertIn("awardedPoints", body[0])
         self.assertNotIn("preSubmissionFeedback", body[0])
 
+    def test_preview_value_error_returns_unprocessable(self):
+        def preview_function(response, params):
+            raise ValueError(f"Failed to parse SymPy expression: {response}")
+
+        commands.preview_function = preview_function
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "A/(w*"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 422)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
+        self.assertEqual(body["message"], "Failed to parse SymPy expression: A/(w*")
+
+    def test_preview_unexpected_error_returns_internal_error(self):
+        def preview_function(response, params):
+            raise RuntimeError("boom")
+
+        commands.preview_function = preview_function
+        event = {
+            "path": "/evaluate",
+            "body": {
+                "submission": {"type": "MATH", "content": {"expression": "x+1"}},
+                "preSubmissionFeedback": {"enabled": True},
+            },
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 500)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "INTERNAL_ERROR")
+
+    def test_evaluation_value_error_returns_unprocessable(self):
+        def evaluation_function(response, answer, params):
+            raise ValueError(f"Failed to parse SymPy expression: {response}")
+
+        commands.evaluation_function = evaluation_function
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "A/(w*"}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 422)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "VALIDATION_ERROR")
+        self.assertEqual(body["message"], "Failed to parse SymPy expression: A/(w*")
+
+    def test_evaluation_unexpected_error_returns_internal_error(self):
+        def evaluation_function(response, answer, params):
+            raise RuntimeError("boom")
+
+        commands.evaluation_function = evaluation_function
+        event = {
+            "path": "/evaluate",
+            "body": {"submission": {"type": "MATH", "content": {"expression": "x+1"}}},
+        }
+
+        response = handler(event)
+
+        self.assertEqual(response["statusCode"], 500)
+        body = json.loads(response["body"])
+        self.assertEqual(body["code"], "INTERNAL_ERROR")
+
 
 class TestMuEdPreviewExtraction(unittest.TestCase):
     def setUp(self) -> None:
