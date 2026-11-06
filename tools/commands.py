@@ -63,7 +63,7 @@ class CaseResult(NamedTuple):
     warning: Optional[CaseWarning] = None
 
 
-SUPPORTED_MUED_VERSIONS: list[str] = ["0.1.0"]
+SUPPORTED_MUED_VERSIONS: List[str] = ["0.1.0"]
 
 
 def healthcheck() -> Response:
