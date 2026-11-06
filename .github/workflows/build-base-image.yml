@@ -12,7 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        # 3.8 is no longer built. The existing main-3.8 image is kept (frozen at
+        # the last build) so functions still on 3.8 keep deploying while they migrate.
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
     permissions:
       contents: read
       packages: write
